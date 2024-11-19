@@ -609,8 +609,8 @@ void InitClientPersistant (gclient_t *client)
 	gitem_t		*item;
 
 	memset (&client->pers, 0, sizeof(client->pers));
-
-	item = FindItem("Blaster");
+	//J NOTE:   if you wanna change what the player starts off with.  Here's where you could star
+	item = FindItem("Blaster");		//J NOTE:  note it doesn't check for null :Cowboy: 
 	client->pers.selected_item = ITEM_INDEX(item);
 	client->pers.inventory[client->pers.selected_item] = 1;
 

@@ -118,13 +118,16 @@ struct edict_s
 //
 // functions provided by the main engine
 //
+//J NOTE --  struture is not "forward declared"; not named here at the top.
+	//Notice all of these functions are function pointers,  since they're in the ENGINE, not here in the logic.
+	//engine is  gamei.
 typedef struct
 {
 	// special messages
 	void	(*bprintf) (int printlevel, char *fmt, ...);
-	void	(*dprintf) (char *fmt, ...);
-	void	(*cprintf) (edict_t *ent, int printlevel, char *fmt, ...);
-	void	(*centerprintf) (edict_t *ent, char *fmt, ...);
+	void	(*dprintf) (char *fmt, ...);	//debug print
+	void	(*cprintf) (edict_t *ent, int printlevel, char *fmt, ...); //Print at Top left corner
+	void	(*centerprintf) (edict_t *ent, char *fmt, ...);	//print right in front of you.  They take a player to send the message to
 	void	(*sound) (edict_t *ent, int channel, int soundindex, float volume, float attenuation, float timeofs);
 	void	(*positioned_sound) (vec3_t origin, edict_t *ent, int channel, int soundinedex, float volume, float attenuation, float timeofs);
 
@@ -193,6 +196,8 @@ typedef struct
 
 	void	(*DebugGraph) (float value, int color);
 } game_import_t;
+//J NOTE:   ^ How we communicate between Game Engine and Logic.
+//this is the name of the TYPE of this structure.
 
 //
 // functions exported by the game subsystem

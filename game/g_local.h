@@ -511,7 +511,7 @@ extern	edict_t			*g_edicts;
 #define	CLOFS(x) (int)&(((gclient_t *)0)->x)
 
 #define random()	((rand () & 0x7fff) / ((float)0x7fff))
-#define crandom()	(2.0 * (random() - 0.5))
+#define crandom()	(2.0 * (random() - 0.5))	//Range from  -1  to 1 inclusive
 
 extern	cvar_t	*maxentities;
 extern	cvar_t	*deathmatch;
@@ -1035,7 +1035,7 @@ struct edict_s
 	edict_t		*movetarget;
 	float		yaw_speed;
 	float		ideal_yaw;
-
+	//J NOTE: all of our AI is handled by function pointers
 	float		nextthink;
 	void		(*prethink) (edict_t *ent);
 	void		(*think)(edict_t *self);

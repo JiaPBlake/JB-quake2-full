@@ -446,10 +446,10 @@ typedef struct
 {
 	qboolean	allsolid;	// if true, plane is not valid
 	qboolean	startsolid;	// if true, the initial point was in a solid area
-	float		fraction;	// time completed, 1.0 = didn't hit anything
+	float		fraction;	// time completed, 1.0 = didn't hit anything	//J NOTE: Tells us What percentage of the way we moved before we hit our target. If Less than 1 (and greater than 0), then we've hit it WITHIN this timeframe
 	vec3_t		endpos;		// final position
 	cplane_t	plane;		// surface normal at impact
-	csurface_t	*surface;	// surface hit
+	csurface_t	*surface;	// surface hit				//J NOTE: if we hit the World, this Surface info will be populated
 	int			contents;	// contents on other side of surface hit
 	struct edict_s	*ent;		// not set by CM_*() functions
 } trace_t;
@@ -1141,7 +1141,7 @@ typedef struct entity_state_s
 	vec3_t	origin;
 	vec3_t	angles;
 	vec3_t	old_origin;		// for lerping
-	int		modelindex;
+	int		modelindex;		//J NOTE: The index of the entity in the big-ass array.  0 is the world next 16 are for clients. EVERY possible object/ent
 	int		modelindex2, modelindex3, modelindex4;	// weapons, CTF flags, etc
 	int		frame;
 	int		skinnum;

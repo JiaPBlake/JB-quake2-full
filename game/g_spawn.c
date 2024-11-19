@@ -144,7 +144,7 @@ void SP_turret_breach (edict_t *self);
 void SP_turret_base (edict_t *self);
 void SP_turret_driver (edict_t *self);
 
-
+//THIS is the "big dog" list of things.  These are all spwn functions for various entities
 spawn_t	spawns[] = {
 	{"item_health", SP_item_health},
 	{"item_health_small", SP_item_health_small},
@@ -287,7 +287,7 @@ void ED_CallSpawn (edict_t *ent)
 		return;
 	}
 
-	// check item spawn functions
+	// check item spawn functions								the spawn items into the world  function
 	for (i=0,item=itemlist ; i<game.num_items ; i++,item++)
 	{
 		if (!item->classname)
@@ -300,7 +300,7 @@ void ED_CallSpawn (edict_t *ent)
 	}
 
 	// check normal spawn functions
-	for (s=spawns ; s->name ; s++)
+	for (s=spawns ; s->name ; s++)	//WHILE s has a name.  Stopss once NULL (which is at the end of the list)
 	{
 		if (!strcmp(s->name, ent->classname))
 		{	// found it

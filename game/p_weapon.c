@@ -852,7 +852,11 @@ void Weapon_Blaster_Fire (edict_t *ent)
 		damage = 15;
 	else
 		damage = 10;
-	Blaster_Fire (ent, vec3_origin, damage, false, EF_BLASTER);
+	//J START
+	gi.cprintf(ent, PRINT_HIGH, "HELLOOOO firing grenadelauncher from the blaster :)\n");
+	//weapon_grenade_fire(ent, false);
+	weapon_grenadelauncher_fire(ent);
+	//Blaster_Fire (ent, vec3_origin, damage, false, EF_BLASTER);
 	ent->client->ps.gunframe++;
 }
 

@@ -107,7 +107,8 @@ gitem_t	*FindItem (char *pickup_name)
 	{
 		if (!it->pickup_name)
 			continue;
-		if (!Q_stricmp(it->pickup_name, pickup_name))
+		if (!Q_stricmp(it->pickup_name, pickup_name)) //str ignore case comp   returns 1 is 1st is alphabetically sooner. 0 if same. This IF WANTS 0 to happen
+			//EVERY other number is True.  -1 is True.  ~-1 is false.
 			return it;
 	}
 

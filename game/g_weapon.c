@@ -143,20 +143,20 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 	qboolean	water = false;
 	int			content_mask = MASK_SHOT | MASK_WATER;
 
-	tr = gi.trace (self->s.origin, NULL, NULL, start, self, MASK_SHOT);
-	if (!(tr.fraction < 1.0))
-	{
-		vectoangles (aimdir, dir);
+	tr = gi.trace (self->s.origin, NULL, NULL, start, self, MASK_SHOT);	//J NOTE: The Trace collided with something IF 0 < x < 1
+	if (!(tr.fraction < 1.0))	//J NOTE: If we DIDN'T hit something. Go ahead and do the extra math:
+	{	//I think it takes aimDir  and creates a direction dir out of it.  Left goes into --> Right
+		vectoangles (aimdir, dir);	//Takes a Direction.  Wanna get the Yaw Pitch and Roll out of it.  (Roll is always 0)
 		AngleVectors (dir, forward, right, up);
 
 		r = crandom()*hspread;
 		u = crandom()*vspread;
-		VectorMA (start, 8192, forward, end);
-		VectorMA (end, r, right, end);
-		VectorMA (end, u, up, end);
+		VectorMA (start, 8192, forward, end);	//J NOTE: 8192 is the size of the map in Quake Units
+		VectorMA (end, r, right, end);	//Take the End position,   Multipy the Right vector BY the R,  and store it back in end
+		VectorMA (end, u, up, end);	//Creates variation that will lead to a cone-shaped Spread. The closer you are to the start, the less varied your Relative POSITION
 
-		if (gi.pointcontents (start) & MASK_WATER)
-		{
+		if (gi.pointcontents (start) & MASK_WATER)	//if the start point of the Game world has the Water Flag set to true
+		{	//if we're firing from WITHIN water.
 			water = true;
 			VectorCopy (start, water_start);
 			content_mask &= ~MASK_WATER;
@@ -189,14 +189,14 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 					color = SPLASH_UNKNOWN;
 
 				if (color != SPLASH_UNKNOWN)
-				{
-					gi.WriteByte (svc_temp_entity);
+				{	//Write Bytse are how we communicate from client to server   or from Logic ot Engine.  How I send a Data Packet to it
+					gi.WriteByte (svc_temp_entity);	//J NOTE: TEMPORARY ENTITIES i s Quake's way of storing Special Effects/Particle Systems. bubbles lightning etc
 					gi.WriteByte (TE_SPLASH);
 					gi.WriteByte (8);
 					gi.WritePosition (tr.endpos);
 					gi.WriteDir (tr.plane.normal);
 					gi.WriteByte (color);
-					gi.multicast (tr.endpos, MULTICAST_PVS);
+					gi.multicast (tr.endpos, MULTICAST_PVS);	//Multicats means EVERY player gets it. UNICAST means One player gets it
 				}
 
 				// change bullet's course when it enters water
@@ -307,12 +307,12 @@ void blaster_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 {
 	int		mod;
 
-	if (other == self->owner)
+	if (other == self->owner) //J NOTE: If what I'm hitting is myself, return
 		return;
 
 	if (surf && (surf->flags & SURF_SKY))
 	{
-		G_FreeEdict (self);
+		G_FreeEdict (self); //J NOTE: ONCE I'VE FREED MYSELF, I HAVE TO RETURN
 		return;
 	}
 
@@ -369,9 +369,9 @@ void fire_blaster (edict_t *self, vec3_t start, vec3_t dir, int damage, int spee
 	bolt->s.modelindex = gi.modelindex ("models/objects/laser/tris.md2");
 	bolt->s.sound = gi.soundindex ("misc/lasfly.wav");
 	bolt->owner = self;
-	bolt->touch = blaster_touch;
+	bolt->touch = blaster_touch;	//Here's where you assign a function. Notice you're not CALLING the function w/ (). You're giving it the memory address of it.  Like JUST the name of the array
 	bolt->nextthink = level.time + 2;
-	bolt->think = G_FreeEdict;
+	bolt->think = G_FreeEdict;  //As long as the parameters are thesame, it's good
 	bolt->dmg = damage;
 	bolt->classname = "bolt";
 	if (hyper)

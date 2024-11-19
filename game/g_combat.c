@@ -374,6 +374,8 @@ qboolean CheckTeamDamage (edict_t *targ, edict_t *attacker)
 	return false;
 }
 
+
+//J NOTE: Inflictor is the projectile itself,  while attacker is the Person who fired the projectile.
 void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir, vec3_t point, vec3_t normal, int damage, int knockback, int dflags, int mod)
 {
 	gclient_t	*client;
@@ -493,7 +495,23 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 
 
 		targ->health = targ->health - take;
-			
+		//J START - hehe I wanna teleport them some units back
+		if (attacker && attacker->client) {
+			gi.cprintf(attacker, PRINT_HIGH, "HEHEEEE I PUSHED YOU BACK\n");
+			targ->s.origin[1] += 50; //0 is Left and Right (from main Hallway)  HAHA!  1 IS BACK
+			//Now I wonder if there's a way for me to get the Direction my guy is looking at, so I can push them back that specific direction...
+			//Try this:		from g_weapon.c Line 150
+			//vectoangles (aimdir, dir)
+			//AngleVectors (dir, forward, right, up);
+
+			//vec3_t	dest;
+			//vec3_t	zero = {0,0,0};
+			//VectorCopy(targ->s.origin, dest);
+			//dest[0] += 0.005;
+			//dest[1] += 0.005;
+			//VectorAdd(targ->s.origin, dest, zero);
+			//VectorAdd(pusher->s.origin, move, pusher->s.origin); // Example VectorAdd stolen from  Line444 in g_phys.c
+		}
 		if (targ->health <= 0)
 		{
 			if ((targ->svflags & SVF_MONSTER) || (client))
