@@ -420,7 +420,7 @@ void TossClientWeapon (edict_t *self)
 	item = self->client->pers.weapon;
 	if (! self->client->pers.inventory[self->client->ammo_index] )
 		item = NULL;
-	if (item && (strcmp (item->pickup_name, "Blaster") == 0))
+	if (item && (strcmp (item->pickup_name, "Shurikens") == 0)) //J CHANGE BLASTER	J NOTE:   since I want to change the name of the "Blaster" to Shurikens, I'll change this compare statement
 		item = NULL;
 
 	if (!((int)(dmflags->value) & DF_QUAD_DROP))
@@ -604,13 +604,13 @@ This is only called when the game first initializes in single player,
 but is called after each death and level change in deathmatch
 ==============
 */
-void InitClientPersistant (gclient_t *client)
+void InitClientPersistant (gclient_t *client)	//J NOTE: This is where you intialize the player when we first start
 {
 	gitem_t		*item;
 
 	memset (&client->pers, 0, sizeof(client->pers));
 	//J NOTE:   if you wanna change what the player starts off with.  Here's where you could star
-	item = FindItem("Blaster");		//J NOTE:  note it doesn't check for null :Cowboy: 
+	item = FindItem("Shurikens");		//J NOTE:  note it doesn't check for null :Cowboy:   //J CHANGE BLASTER: Blaster
 	client->pers.selected_item = ITEM_INDEX(item);
 	client->pers.inventory[client->pers.selected_item] = 1;
 
@@ -623,10 +623,12 @@ void InitClientPersistant (gclient_t *client)
 	client->pers.max_shells		= 100;
 	client->pers.max_rockets	= 50;
 	client->pers.max_grenades	= 50;
-	client->pers.max_cells		= 200;
+	client->pers.max_cells		= 500;  //J CHANGE: changing max cell count
 	client->pers.max_slugs		= 50;
 
 	client->pers.connected = true;
+	//J START
+	client->pers.stealthLevel = 1;
 }
 
 
@@ -1564,10 +1566,10 @@ void PrintPmove (pmove_t *pm)
 ClientThink
 
 This will be called once for each client frame, which will
-usually be a couple times for each server frame.
-==============
+usually be a couple times for each server frame.			J NOTE: If you wanna have a status effect, this is an excellent place to do it
+==============										BUT IT'S CALLED VERYYY OFTEN
 */
-void ClientThink (edict_t *ent, usercmd_t *ucmd)
+void ClientThink (edict_t *ent, usercmd_t *ucmd)	//Command that's passing this server frame
 {
 	gclient_t	*client;
 	edict_t	*other;
@@ -1651,9 +1653,11 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 
 		if (ent->groundentity && !pm.groundentity && (pm.cmd.upmove >= 10) && (pm.waterlevel == 0))
 		{
-			gi.sound(ent, CHAN_VOICE, gi.soundindex("*jump1.wav"), 1, ATTN_NORM, 0);
-			PlayerNoise(ent, ent->s.origin, PNOISE_SELF);
-		}
+			if (!(ent->client->breather_framenum > level.framenum)) { //J START.  if I have the rebreather on, I'm COMPLETELY silent	
+				gi.sound(ent, CHAN_VOICE, gi.soundindex("*jump1.wav"), 1, ATTN_NORM, 0);
+				PlayerNoise(ent, ent->s.origin, PNOISE_SELF); //J NOTE: jumping noise.  
+			}
+		}	
 
 		ent->viewheight = pm.viewheight;
 		ent->waterlevel = pm.waterlevel;
@@ -1721,6 +1725,36 @@ void ClientThink (edict_t *ent, usercmd_t *ucmd)
 			Think_Weapon (ent);
 		}
 	}
+
+	//J NOTE  This is where he put his  ent->health--;  and then T-Damage() function
+	//T_Damage(ent, ent, ent, no, ent-> );
+
+	//J START maybe this is where I can decrement a timer (NOT BY 1 lmfao)  OR  he suggests some kind of cooldown
+		//J NOTE:  he added his cooldown in g_local.
+	if (!ent->stealthTimer) {		//at the end of the "timer"
+
+		//ent->health--;  ofc, this affects my Health value.  but what if I wanna TakeDamage so that it'll go to my armor instead?
+		//T_Damage(ent, ent, ent, ent->velocity, ent->s.origin, vec3_origin, 1, 0, DAMAGE_NO_KNOCKBACK, MOD_HIT);  //ok. do NOT give NULL as a direction LMAOO
+		
+		ent->viewheight--;
+		//reset the timer
+		ent->stealthTimer = 50;	//50 Think units is about 0.8 seconds.  So 1 irl second is about 62 maybe 63 Think frames
+	}
+	else {
+		ent->stealthTimer--;
+		//I'm curious to see how Level time works		it's essentially a real life second.
+		//gi.cprintf(ent, PRINT_HIGH, "Level Time is: %f\n", level.time);
+
+	}
+	if ( !ent->energyRegen ) {   //Once the energyRegen timer is done.  A.k.a once a real-life second has passed. Regenerate energy over time
+		ent->energyRegen = 160;   //actually.. make it slower than 1 second
+		if(ent->client->pers.inventory[20] < ent->client->pers.max_cells )
+			ent->client->pers.inventory[20]++;
+	}
+	else {
+		ent->energyRegen--;
+	}
+
 
 	if (client->resp.spectator) {
 		if (ucmd->upmove >= 10) {

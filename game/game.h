@@ -68,7 +68,7 @@ typedef struct link_s
 #define	MAX_ENT_CLUSTERS	16
 
 
-typedef struct edict_s edict_t;
+typedef struct edict_s edict_t;	//J NOTE: oh.  I'm so silly brooo   edict_t  is the "object"  of "class" edict_s  fjkdfl duhh.  S is T's TYPE
 typedef struct gclient_s gclient_t;
 
 

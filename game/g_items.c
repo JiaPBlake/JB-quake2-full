@@ -105,10 +105,10 @@ gitem_t	*FindItem (char *pickup_name)
 	it = itemlist;
 	for (i=0 ; i<game.num_items ; i++, it++)
 	{
-		if (!it->pickup_name)
+		if (!it->pickup_name)		//J NOTE:  if the item has no pickup_name, skip it
 			continue;
-		if (!Q_stricmp(it->pickup_name, pickup_name)) //str ignore case comp   returns 1 is 1st is alphabetically sooner. 0 if same. This IF WANTS 0 to happen
-			//EVERY other number is True.  -1 is True.  ~-1 is false.
+		if (!Q_stricmp(it->pickup_name, pickup_name)) //J NOTE: str ignore case comp   returns 1 is 1st is alphabetically sooner. 0 if same. This IF WANTS 0 to happen
+			//J NOTE: EVERY other number is True.  -1 is True.  ~-1 is false.
 			return it;
 	}
 
@@ -228,8 +228,8 @@ qboolean Pickup_Bandolier (edict_t *ent, edict_t *other)
 		other->client->pers.max_bullets = 250;
 	if (other->client->pers.max_shells < 150)
 		other->client->pers.max_shells = 150;
-	if (other->client->pers.max_cells < 250)
-		other->client->pers.max_cells = 250;
+	if (other->client->pers.max_cells < 600)  //J CHANGE:  max used to be 250
+		other->client->pers.max_cells = 600;
 	if (other->client->pers.max_slugs < 75)
 		other->client->pers.max_slugs = 75;
 
@@ -270,8 +270,8 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 		other->client->pers.max_rockets = 100;
 	if (other->client->pers.max_grenades < 100)
 		other->client->pers.max_grenades = 100;
-	if (other->client->pers.max_cells < 300)
-		other->client->pers.max_cells = 300;
+	if (other->client->pers.max_cells < 500)  //J CHANGE:  Max Cells value was 300. Changing it to 500
+		other->client->pers.max_cells = 500;
 	if (other->client->pers.max_slugs < 100)
 		other->client->pers.max_slugs = 100;
 
@@ -306,6 +306,7 @@ qboolean Pickup_Pack (edict_t *ent, edict_t *other)
 	if (item)
 	{
 		index = ITEM_INDEX(item);
+		//gi.cprintf(other, PRINT_HIGH, "Grenade's ITEM INDEX is: %i\n", index);
 		other->client->pers.inventory[index] += item->quantity;
 		if (other->client->pers.inventory[index] > other->client->pers.max_grenades)
 			other->client->pers.inventory[index] = other->client->pers.max_grenades;
@@ -351,7 +352,7 @@ void Use_Quad (edict_t *ent, gitem_t *item)
 	}
 	else
 	{
-		timeout = 300;
+		timeout = 250;  //J NOTE: 300  means 30 seconds of ability uptime. (bc I saw the hud - in order to display the counter - divided it by 10)
 	}
 
 	if (ent->client->quad_framenum > level.framenum)
@@ -359,6 +360,7 @@ void Use_Quad (edict_t *ent, gitem_t *item)
 	else
 		ent->client->quad_framenum = level.framenum + timeout;
 
+	ent->client->pers.inventory[20] -= 50; //J START:  decrease cells (our energy system) for using the powerup
 	gi.sound(ent, CHAN_ITEM, gi.soundindex("items/damage.wav"), 1, ATTN_NORM, 0);
 }
 
@@ -396,14 +398,37 @@ void Use_Envirosuit (edict_t *ent, gitem_t *item)
 
 void	Use_Invulnerability (edict_t *ent, gitem_t *item)
 {
-	ent->client->pers.inventory[ITEM_INDEX(item)]--;
+	//ent->client->pers.inventory[ITEM_INDEX(item)]--;  //J HIDE J CHANGE hehee  no Invuln. charges on meeee  we stay usin CELLS.  ID for invuln. is 24
 	ValidateSelectedItem (ent);
+	ent->client->pers.inventory[20] -= 100; //J START:  decrease cells (our energy system) for using the powerup
 
-	if (ent->client->invincible_framenum > level.framenum)
-		ent->client->invincible_framenum += 300;
-	else
-		ent->client->invincible_framenum = level.framenum + 300;
+	//gi.cprintf(ent, PRINT_HIGH, "The quantity of the Invuln. item is: %d\n", item->quantity);  //for smoke bomb purposes
+	if (item->quantity == 200) {  //SMOKE BOMB BRANCH
+		//gi.cprintf(ent, PRINT_HIGH, "In smoke bomb branch since %d\n", item->quantity);
+		if (ent->client->invincible_framenum > level.framenum) //J NOTE:  if invincibility is ALREADY ON  and we Use a smoke bomb again:
+			ent->client->invincible_framenum += 50;  //meh.  Yeah I'll let you double up on smoke bombs
+		else {
+			ent->client->invincible_framenum = level.framenum + 50;
+		}
+		item->quantity = 300;  //set it back to 300
+	}
+	//NON SMOKE BOMB BRANCH
+	else {
+		//gi.cprintf(ent, PRINT_HIGH, "NON SMOKE BRANCH: %d\n", item->quantity);
+		int stealthMult;
+		if (ent->client->pers.stealthLevel < 1)  //I thought I could initialize it upon InitClient data but whatever ig
+			ent->client->pers.stealthLevel = 1;
+		stealthMult = 100 * (ent->client->pers.stealthLevel / 3 + 1);  //every 3 levels you gain 10 seconds of stealth. Default is 10
+		//gi.cprintf(ent, PRINT_HIGH, "stealthMult is: %d\n", stealthMult);  //was for testing purposes
 
+		if (ent->client->invincible_framenum > level.framenum) //J NOTE:  if invincibility is ALREADY ON  and we Use it again:
+			ent->client->invincible_framenum += stealthMult;		//add more to it (I can stack it).
+		else {
+			ent->client->invincible_framenum = level.framenum + stealthMult; //J CHANGE:  used to be 300
+		}
+
+		ent->client->pers.inventory[20] -= 50; //J START:  decrease cells (our energy system) for using the powerup
+	}
 	gi.sound(ent, CHAN_ITEM, gi.soundindex("items/protect.wav"), 1, ATTN_NORM, 0);
 }
 
@@ -502,7 +527,7 @@ qboolean Pickup_Ammo (edict_t *ent, edict_t *other)
 
 	if (weapon && !oldcount)
 	{
-		if (other->client->pers.weapon != ent->item && ( !deathmatch->value || other->client->pers.weapon == FindItem("blaster") ) )
+		if (other->client->pers.weapon != ent->item && ( !deathmatch->value || other->client->pers.weapon == FindItem("Shurikens") ) )  //J CHANGE BLASTER: "blaster"
 			other->client->newweapon = ent->item;
 	}
 
@@ -1132,6 +1157,17 @@ void SpawnItem (edict_t *ent, gitem_t *item)
 
 //======================================================================
 
+//J START:  layout of this itemList
+// *classname 
+// *pickup function
+// *use		function
+// *drop	function
+// *think	function
+// *sound
+// *world_model 
+// W_M_flags 
+// *viewmodel
+
 gitem_t	itemlist[] = 
 {
 	{
@@ -1291,22 +1327,22 @@ always owned, never in the world
 */
 	{
 		"weapon_blaster", 
-		NULL,
-		Use_Weapon,
-		NULL,
-		Weapon_Blaster,
+		NULL,		//no pickup function because it's ALWAYS in the player's inventory
+		Use_Weapon,		//use function
+		NULL,		//no drop function bc you're not allowed to drop it
+		Weapon_Blaster,	//think function
 		"misc/w_pkup.wav",
 		NULL, 0,
-		"models/weapons/v_blast/tris.md2",
-/* icon */		"w_blaster",
-/* pickup */	"Blaster",
-		0,
-		0,
-		NULL,
-		IT_WEAPON|IT_STAY_COOP,
-		WEAP_BLASTER,
-		NULL,
-		0,
+		"models/weapons/v_blast/tris.md2",	//viewmodel
+/* icon */		"w_blaster",		//this starts the "client side info" section of the item structure. With: the icon
+/* pickup */	"Shurikens",			//pickupname for printing on pickup  -- which !! I think I might be able to change actually.
+		0, //count width		//J CHANGE BLASTER:  the final piece of the puzzle methinks
+		0, //quantity  - For weapons:  this is How much is used per shot.    For ammo, it's How much
+		NULL,   //AMMO
+		IT_WEAPON|IT_STAY_COOP, //IT_* flags
+		WEAP_BLASTER, //weapon model
+		NULL,    //info pointer
+		0,			//tag
 /* precache */ "weapons/blastf1a.wav misc/lasfly.wav"
 	},
 
@@ -1325,7 +1361,7 @@ always owned, never in the world
 /* pickup */	"Shotgun",
 		0,
 		1,
-		"Shells",
+		NULL, //"Shells",  //J CHANGE:  changing ammo to be none. There's no ammo for a good old sword, silly!!
 		IT_WEAPON|IT_STAY_COOP,
 		WEAP_SHOTGUN,
 		NULL,
@@ -1348,7 +1384,7 @@ always owned, never in the world
 /* pickup */	"Super Shotgun",
 		0,
 		2,
-		"Shells",
+		"Cells",//"Shells", //J CHANGE:  changing ammo to HOPEFULLY use cells..
 		IT_WEAPON|IT_STAY_COOP,
 		WEAP_SUPERSHOTGUN,
 		NULL,
@@ -1371,7 +1407,7 @@ always owned, never in the world
 /* pickup */	"Machinegun",
 		0,
 		1,
-		"Bullets",
+		"Cells", //"Bullets",  //J CHANGE:  changing ammo to use cells
 		IT_WEAPON|IT_STAY_COOP,
 		WEAP_MACHINEGUN,
 		NULL,
@@ -1417,7 +1453,7 @@ always owned, never in the world
 /* pickup */	"Grenades",
 /* width */		3,
 		5,
-		"grenades",
+		"Cells", //"grenades",  //J CHANGE:  I kinda want to the grenades to use Cells since they DO teleport you after all..
 		IT_AMMO|IT_WEAPON,
 		WEAP_GRENADES,
 		NULL,
@@ -1463,7 +1499,7 @@ always owned, never in the world
 /* pickup */	"Rocket Launcher",
 		0,
 		1,
-		"Rockets",
+		NULL, //"Rockets",   //we need no ammo for rocks!  just pick one up off the ground silly :)
 		IT_WEAPON|IT_STAY_COOP,
 		WEAP_ROCKETLAUNCHER,
 		NULL,
@@ -1486,7 +1522,7 @@ always owned, never in the world
 /* pickup */	"HyperBlaster",
 		0,
 		1,
-		"Cells",
+		NULL, //"Cells",   //J CHANGE:  changing ammo to be none;  this is just fancier shurikens. But no need for energy (cell) depletion
 		IT_WEAPON|IT_STAY_COOP,
 		WEAP_HYPERBLASTER,
 		NULL,
@@ -1509,7 +1545,7 @@ always owned, never in the world
 /* pickup */	"Railgun",
 		0,
 		1,
-		"Slugs",
+		"Cells",//"Slugs",  //J CHANGE;  changing ammo to hopefully use cells
 		IT_WEAPON|IT_STAY_COOP,
 		WEAP_RAILGUN,
 		NULL,

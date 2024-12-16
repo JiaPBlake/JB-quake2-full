@@ -102,6 +102,13 @@ void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, v
 		if (!(targ->monsterinfo.aiflags & AI_GOOD_GUY))
 		{
 			level.killed_monsters++;
+			//J START  Once I've killed a monster, raise my stealth level EVERY 5 MONSTERS:
+			if (attacker->client && (level.killed_monsters % 5 == 0)) {
+				if (attacker->client->pers.stealthLevel < 30 )  //ONLY if we're not at the max yet. every 5 monsters
+					attacker->client->pers.stealthLevel++;
+				else attacker->client->pers.stealthLevel = 30;
+				gi.cprintf(attacker, PRINT_HIGH, "Stealth Level has been raised! You are now Stealth Level: %d\n", attacker->client->pers.stealthLevel);
+			}
 			if (coop->value && attacker->client)
 				attacker->client->resp.score++;
 			// medics won't heal monsters that they kill themselves
@@ -192,7 +199,7 @@ static int CheckPowerArmor (edict_t *ent, vec3_t point, vec3_t normal, int damag
 		power_armor_type = PowerArmorType (ent);
 		if (power_armor_type != POWER_ARMOR_NONE)
 		{
-			index = ITEM_INDEX(FindItem("Cells"));
+			index = ITEM_INDEX(FindItem("Cells")); //
 			power = client->pers.inventory[index];
 		}
 	}
@@ -223,13 +230,13 @@ static int CheckPowerArmor (edict_t *ent, vec3_t point, vec3_t normal, int damag
 		if (dot <= 0.3)
 			return 0;
 
-		damagePerCell = 1;
+		damagePerCell = 5; //J CHANGE:  used to be 1
 		pa_te_type = TE_SCREEN_SPARKS;
 		damage = damage / 3;
 	}
 	else
 	{
-		damagePerCell = 2;
+		damagePerCell = 10;  //J CHANGE:  used to be 2
 		pa_te_type = TE_SHIELD_SPARKS;
 		damage = (2 * damage) / 3;
 	}
@@ -245,8 +252,10 @@ static int CheckPowerArmor (edict_t *ent, vec3_t point, vec3_t normal, int damag
 
 	power_used = save / damagePerCell;
 
-	if (client)
+	if (client) {
 		client->pers.inventory[index] -= power_used;
+		gi.cprintf(ent, PRINT_HIGH, "You're using power armeor\n");  //was for testing purposes
+	}
 	else
 		ent->monsterinfo.power_armor_power -= power_used;
 	return save;
@@ -420,9 +429,9 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 
 	VectorNormalize(dir);
 
-// bonus damage for suprising a monster
+// bonus damage for suprising a monster										J NOTE:  if the target has NO enemy
 	if (!(dflags & DAMAGE_RADIUS) && (targ->svflags & SVF_MONSTER) && (attacker->client) && (!targ->enemy) && (targ->health > 0))
-		damage *= 2;
+		damage *= 20; //J CHANGE:  was only 2. I made it 20 bc Stealth Kill insta kills silly
 
 	if (targ->flags & FL_NO_KNOCKBACK)
 		knockback = 0;
@@ -495,23 +504,29 @@ void T_Damage (edict_t *targ, edict_t *inflictor, edict_t *attacker, vec3_t dir,
 
 
 		targ->health = targ->health - take;
-		//J START - hehe I wanna teleport them some units back
-		if (attacker && attacker->client) {
+		//J START - hehe I wanna teleport them some units back     this.   this was for Proof of Concept. LOOK at how scatterbrained this is LMAO.  how far I've come...
+		/*if (attacker && attacker->client) {
 			gi.cprintf(attacker, PRINT_HIGH, "HEHEEEE I PUSHED YOU BACK\n");
 			targ->s.origin[1] += 50; //0 is Left and Right (from main Hallway)  HAHA!  1 IS BACK
 			//Now I wonder if there's a way for me to get the Direction my guy is looking at, so I can push them back that specific direction...
+			//lmfao or I could just trace through knockback
+			
 			//Try this:		from g_weapon.c Line 150
-			//vectoangles (aimdir, dir)
-			//AngleVectors (dir, forward, right, up);
+			vec3_t newDir;
+			vec3_t forward;
+			vec3_t right;
+			vec3_t up;
+			vectoangles(dir, newDir);
+			AngleVectors (newDir, forward, right, up);
 
-			//vec3_t	dest;
+			/*vec3_t	dest;
 			//vec3_t	zero = {0,0,0};
 			//VectorCopy(targ->s.origin, dest);
 			//dest[0] += 0.005;
 			//dest[1] += 0.005;
 			//VectorAdd(targ->s.origin, dest, zero);
-			//VectorAdd(pusher->s.origin, move, pusher->s.origin); // Example VectorAdd stolen from  Line444 in g_phys.c
-		}
+			//VectorAdd(pusher->s.origin, move, pusher->s.origin); // Example VectorAdd stolen from  Line444 in g_phys.c 
+		}*/
 		if (targ->health <= 0)
 		{
 			if ((targ->svflags & SVF_MONSTER) || (client))

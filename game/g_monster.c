@@ -469,7 +469,7 @@ void monster_triggered_spawn (edict_t *self)
 	gi.linkentity (self);
 
 	monster_start_go (self);
-
+	//J NOTE:  so monster's think function is this.    if I HAVE an enemy, call FoundTarget to Hunt them, presumably
 	if (self->enemy && !(self->spawnflags & 1) && !(self->enemy->flags & FL_NOTARGET))
 	{
 		FoundTarget (self);

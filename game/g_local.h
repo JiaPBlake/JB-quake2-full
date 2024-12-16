@@ -233,7 +233,7 @@ typedef struct
 
 typedef struct gitem_s
 {
-	char		*classname;	// spawning name
+	char		*classname;	// spawning name  
 	qboolean	(*pickup)(struct edict_s *ent, struct edict_s *other);
 	void		(*use)(struct edict_s *ent, struct gitem_s *item);
 	void		(*drop)(struct edict_s *ent, struct gitem_s *item);
@@ -862,6 +862,8 @@ typedef struct
 	int			helpchanged;
 
 	qboolean	spectator;			// client is a spectator
+	//J START
+	int			stealthLevel;
 } client_persistant_t;
 
 // client data that stays across deathmatch respawns
@@ -1109,5 +1111,11 @@ struct edict_s
 	// common data blocks
 	moveinfo_t		moveinfo;
 	monsterinfo_t	monsterinfo;
+	
+	//J START   he added his cooldown variable here
+	int			stealthTimer;
+	qboolean	tpOut;
+	int			energyRegen;
+	qboolean	invis;
 };
 

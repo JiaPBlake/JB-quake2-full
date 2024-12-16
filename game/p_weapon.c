@@ -52,12 +52,12 @@ a personal noise (jumping, pain, weapon firing), and a weapon
 target noise (bullet wall impacts)
 
 Monsters that don't directly see the player can move
-to a noise in hopes of seeing the player from there.
+to a noise in hopes of seeing the player from there.		//J NOTE: the Enumerated types are ofc defined in g_local.h
 ===============
 */
 void PlayerNoise(edict_t *who, vec3_t where, int type)
 {
-	edict_t		*noise;
+	edict_t		*noise; //J NOTE: declare a Noise Entity
 
 	if (type == PNOISE_WEAPON)
 	{
@@ -75,14 +75,14 @@ void PlayerNoise(edict_t *who, vec3_t where, int type)
 		return;
 
 
-	if (!who->mynoise)
+	if (!who->mynoise) //J NOTE: if the thing that made the noise does NOT have a noise Entity ALREADY associated with it
 	{
-		noise = G_Spawn();
+		noise = G_Spawn();	//J NOTE: create the entity
 		noise->classname = "player_noise";
-		VectorSet (noise->mins, -8, -8, -8);
-		VectorSet (noise->maxs, 8, 8, 8);
-		noise->owner = who;
-		noise->svflags = SVF_NOCLIENT;
+		VectorSet (noise->mins, -8, -8, -8); //J NOTE: I have no idea what these mins and maxes are for. Like idk if they're distance or w/e
+		VectorSet (noise->maxs, 8, 8, 8);	//'cause y'know. ideally in a stealth game I'd STILL have player noise
+		noise->owner = who;				//it just wouldn't be as egregiously aggrivating to mobs as it currently is in Q2
+		noise->svflags = SVF_NOCLIENT;	//so I wonder if these mins/maxs are distance values
 		who->mynoise = noise;
 
 		noise = G_Spawn();
@@ -91,20 +91,24 @@ void PlayerNoise(edict_t *who, vec3_t where, int type)
 		VectorSet (noise->maxs, 8, 8, 8);
 		noise->owner = who;
 		noise->svflags = SVF_NOCLIENT;
-		who->mynoise2 = noise;
+		who->mynoise2 = noise;	//assign the 2nd noise entity
 	}
 
-	if (type == PNOISE_SELF || type == PNOISE_WEAPON)
+	//J NOTE: //J CHANGE: should I comment this if block out ?  So that all noises ever made with this function are of the 2nd type..?
+	if (type == PNOISE_SELF || type == PNOISE_WEAPON) //mmm yeah I'm not,, tooo sure what to do with this.
 	{
-		noise = who->mynoise;
+		noise = who->mynoise; //get the Noise entity associated w/ the Who
 		level.sound_entity = noise;
 		level.sound_entity_framenum = level.framenum;
+		if(who->client) 
+			gi.cprintf(who, PRINT_HIGH, "You made a sound dingus\n");
 	}
 	else // type == PNOISE_IMPACT
 	{
-		noise = who->mynoise2;
+		noise = who->mynoise2;				//check to make sure the origin given during this function call ISN't just MY location
 		level.sound2_entity = noise;
 		level.sound2_entity_framenum = level.framenum;
+		//gi.cprintf(who, PRINT_HIGH, "IMPACT NOISE\n");
 	}
 
 	VectorCopy (where, noise->s.origin);
@@ -156,7 +160,7 @@ qboolean Pickup_Weapon (edict_t *ent, edict_t *other)
 
 	if (other->client->pers.weapon != ent->item && 
 		(other->client->pers.inventory[index] == 1) &&
-		( !deathmatch->value || other->client->pers.weapon == FindItem("blaster") ) )
+		( !deathmatch->value || other->client->pers.weapon == FindItem("Shurikens") ) ) //J CHANGE BLASTER: blaster
 		other->client->newweapon = ent->item;
 
 	return true;
@@ -269,7 +273,7 @@ void NoAmmoWeaponChange (edict_t *ent)
 		ent->client->newweapon = FindItem ("shotgun");
 		return;
 	}
-	ent->client->newweapon = FindItem ("blaster");
+	ent->client->newweapon = FindItem ("Shurikens"); //J CHANGE BLASTER: blaster
 }
 
 /*
@@ -385,7 +389,7 @@ void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST,
 	{
 		return;
 	}
-
+	//J NOTE: play animation until the last deactivation frame, then ChangeWeapon
 	if (ent->client->weaponstate == WEAPON_DROPPING)
 	{
 		if (ent->client->ps.gunframe == FRAME_DEACTIVATE_LAST)
@@ -412,8 +416,8 @@ void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST,
 		ent->client->ps.gunframe++;
 		return;
 	}
-
-	if (ent->client->weaponstate == WEAPON_ACTIVATING)
+	//J NOTE: move frame until WEAPON_READY
+	if (ent->client->weaponstate == WEAPON_ACTIVATING) 
 	{
 		if (ent->client->ps.gunframe == FRAME_ACTIVATE_LAST)
 		{
@@ -425,7 +429,7 @@ void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST,
 		ent->client->ps.gunframe++;
 		return;
 	}
-
+	//J NOTE: sets weaponstate to WEAPON_DROPPING
 	if ((ent->client->newweapon) && (ent->client->weaponstate != WEAPON_FIRING))
 	{
 		ent->client->weaponstate = WEAPON_DROPPING;
@@ -507,7 +511,7 @@ void Weapon_Generic (edict_t *ent, int FRAME_ACTIVATE_LAST, int FRAME_FIRE_LAST,
 			return;
 		}
 	}
-
+	//J NOTE: animations and actually fire the weaopn using the function passed
 	if (ent->client->weaponstate == WEAPON_FIRING)
 	{
 		for (n = 0; fire_frames[n]; n++)
@@ -548,14 +552,14 @@ void weapon_grenade_fire (edict_t *ent, qboolean held)
 	vec3_t	offset;
 	vec3_t	forward, right;
 	vec3_t	start;
-	int		damage = 125;
+	int		damage = 0; //J START / J CHANGE: damage is 125 by default, but I'm changing it to 0 for the TP beacon
 	float	timer;
 	int		speed;
 	float	radius;
 
 	radius = damage+40;
 	if (is_quad)
-		damage *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 
 	VectorSet(offset, 8, 8, ent->viewheight-8);
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
@@ -563,10 +567,12 @@ void weapon_grenade_fire (edict_t *ent, qboolean held)
 
 	timer = ent->client->grenade_time - level.time;
 	speed = GRENADE_MINSPEED + (GRENADE_TIMER - timer) * ((GRENADE_MAXSPEED - GRENADE_MINSPEED) / GRENADE_TIMER);
-	fire_grenade2 (ent, start, forward, damage, speed, timer, radius, held);
-
+	//if (ent->tpOut == false) {
+	fire_grenade2(ent, start, forward, damage, 0, timer, radius, held); //J CHANGE:  changing speed to 0 so that it falls at my feet (hopefully)
+	ent->tpOut = true;
+	//}
 	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
-		ent->client->pers.inventory[ent->client->ammo_index]--;
+		ent->client->pers.inventory[ent->client->ammo_index] -= 5; //J CHANGE:  decrease energy by 5 just for laying down the sigil
 
 	ent->client->grenade_time = level.time + 1.0;
 
@@ -607,7 +613,7 @@ void Weapon_Grenade (edict_t *ent)
 		return;
 	}
 
-	if (ent->client->weaponstate == WEAPON_READY)
+	if (ent->client->weaponstate == WEAPON_READY && ent->tpOut == false)
 	{
 		if ( ((ent->client->latched_buttons|ent->client->buttons) & BUTTON_ATTACK) )
 		{
@@ -658,12 +664,16 @@ void Weapon_Grenade (edict_t *ent)
 			if (!ent->client->grenade_blew_up && level.time >= ent->client->grenade_time)
 			{
 				ent->client->weapon_sound = 0;
-				weapon_grenade_fire (ent, true);
-				ent->client->grenade_blew_up = true;
+				ent->client->latched_buttons &= ~BUTTON_ATTACK;
+				weapon_grenade_fire(ent, true);
+				//ent->client->grenade_blew_up = true;
 			}
 
-			if (ent->client->buttons & BUTTON_ATTACK)
+			if (ent->client->buttons & BUTTON_ATTACK) //J NOTE:  take note of this to use it for TP-ing back
+			{
+				gi.cprintf(ent, PRINT_HIGH, "AND Button_attack in Weapon_Grenade in p_weapon\n");
 				return;
+			}
 
 			if (ent->client->grenade_blew_up)
 			{
@@ -716,7 +726,7 @@ void weapon_grenadelauncher_fire (edict_t *ent)
 
 	radius = damage+40;
 	if (is_quad)
-		damage *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 
 	VectorSet(offset, 8, 8, ent->viewheight-8);
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
@@ -725,7 +735,7 @@ void weapon_grenadelauncher_fire (edict_t *ent)
 	VectorScale (forward, -2, ent->client->kick_origin);
 	ent->client->kick_angles[0] = -1;
 
-	fire_grenade (ent, start, forward, damage, 600, 2.5, radius);
+	fire_grenade (ent, start, forward, damage, 5, 2.5, radius);  //J CHANGE:  the speed originally was 600.  But this is a smoke bomb, it's not going very far
 
 	gi.WriteByte (svc_muzzleflash);
 	gi.WriteShort (ent-g_edicts);
@@ -734,10 +744,12 @@ void weapon_grenadelauncher_fire (edict_t *ent)
 
 	ent->client->ps.gunframe++;
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//PlayerNoise(ent, start, PNOISE_WEAPON);  //NO weapon noise!  Smoke bomb!
 
 	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
 		ent->client->pers.inventory[ent->client->ammo_index]--;
+	//J START this does not work .  I think ik why  it's because only inventory items (powerups -- power armor and shit) can be dropped. not weapons
+	//droptofloor(ent);
 }
 
 void Weapon_GrenadeLauncher (edict_t *ent)
@@ -763,14 +775,14 @@ void Weapon_RocketLauncher_Fire (edict_t *ent)
 	int		damage;
 	float	damage_radius;
 	int		radius_damage;
-
-	damage = 100 + (int)(random() * 20.0);
-	radius_damage = 120;
-	damage_radius = 120;
+	//J START.  rockets do,, WAY too much damage for my purposes
+	damage = 1; //damage = 100 + (int)(random() * 20.0);
+	radius_damage = 0;
+	damage_radius = 0;
 	if (is_quad)
 	{
-		damage *= 4;
-		radius_damage *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
+		radius_damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 	}
 
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
@@ -789,11 +801,11 @@ void Weapon_RocketLauncher_Fire (edict_t *ent)
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
 	ent->client->ps.gunframe++;
-
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//J START  J HIDE:   no noise from me  AND! no ammo decrementation
+	/*PlayerNoise(ent, start, PNOISE_WEAPON);
 
 	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
-		ent->client->pers.inventory[ent->client->ammo_index]--;
+		ent->client->pers.inventory[ent->client->ammo_index]--;  */
 }
 
 void Weapon_RocketLauncher (edict_t *ent)
@@ -816,11 +828,12 @@ BLASTER / HYPERBLASTER
 void Blaster_Fire (edict_t *ent, vec3_t g_offset, int damage, qboolean hyper, int effect)
 {
 	vec3_t	forward, right;
+	vec3_t	f2, f3; //J NOTE:  I have no idea how view angles works .
 	vec3_t	start;
 	vec3_t	offset;
 
 	if (is_quad)
-		damage *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
 	VectorSet(offset, 24, 8, ent->viewheight-8);
 	VectorAdd (offset, g_offset, offset);
@@ -828,8 +841,16 @@ void Blaster_Fire (edict_t *ent, vec3_t g_offset, int damage, qboolean hyper, in
 
 	VectorScale (forward, -2, ent->client->kick_origin);
 	ent->client->kick_angles[0] = -1;
-
+	//J START  perhaps I could call this function 3 times with a slightly different Left and Right offset for the Hyper blaster to make it a Shuriken spread ?
 	fire_blaster (ent, start, forward, damage, 1000, effect, hyper);
+	if (hyper) {
+		VectorMA(forward, 0.15, right, f2);	//Scales the Right vector BY the R, adds it to End and stores it back in End
+		fire_blaster(ent, start, f2, damage, 1000, effect, hyper);
+		//gi.cprintf(ent->owner, PRINT_HIGH, "Changing f2\n");
+		VectorMA(forward, -0.15, right, f3);
+		fire_blaster(ent, start, f3, damage, 1000, effect, hyper);
+		//gi.cprintf(ent->owner, PRINT_HIGH, "Changing f3\n");
+	}
 
 	// send muzzle flash
 	gi.WriteByte (svc_muzzleflash);
@@ -840,7 +861,7 @@ void Blaster_Fire (edict_t *ent, vec3_t g_offset, int damage, qboolean hyper, in
 		gi.WriteByte (MZ_BLASTER | is_silenced);
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//PlayerNoise(ent, start, PNOISE_WEAPON); //J HIDE
 }
 
 
@@ -853,19 +874,43 @@ void Weapon_Blaster_Fire (edict_t *ent)
 	else
 		damage = 10;
 	//J START
-	gi.cprintf(ent, PRINT_HIGH, "HELLOOOO firing grenadelauncher from the blaster :)\n");
-	//weapon_grenade_fire(ent, false);
-	weapon_grenadelauncher_fire(ent);
-	//Blaster_Fire (ent, vec3_origin, damage, false, EF_BLASTER);
+	//gi.cprintf(ent, PRINT_HIGH, "HELLOOOO firing grenadelauncher from the blaster :)\n");
+	//weapon_grenadelauncher_fire(ent);  //for old Proof-Of-Concept weapon change.
+	Blaster_Fire (ent, vec3_origin, damage, false, EF_BLASTER);
+	ent->client->ps.gunframe++;
+}
+//J START:
+void Weapon_HBlaster_Fire(edict_t* ent)
+{
+	int		damage;
+	int		effect;
+
+	if (deathmatch->value)
+		damage = 15;
+	else
+		damage = 10;
+	if ((ent->client->ps.gunframe == 6) || (ent->client->ps.gunframe == 9))
+		effect = EF_HYPERBLASTER;
+	else
+		effect = 0;
+	//J START
+	//gi.cprintf(ent, PRINT_HIGH, "HELLOOOO firing grenadelauncher from the blaster :)\n");
+	//gi.cprintf(ent, PRINT_HIGH, "The ammo index for Cells should be %i\n", ent->client->ammo_index);
+	//weapon_grenadelauncher_fire(ent);  //for old Proof-Of-Concept weapon change.
+	Blaster_Fire(ent, vec3_origin, damage, true, effect);
+	//if (!((int)dmflags->value & DF_INFINITE_AMMO))
+		//ent->client->pers.inventory[ent->client->ammo_index]--;   //so this does !   change the Cells
 	ent->client->ps.gunframe++;
 }
 
-void Weapon_Blaster (edict_t *ent)
+
+void Weapon_Blaster (edict_t *ent)	//J NOTE: wait a moment this whole thing is primarily animation based
 {
 	static int	pause_frames[]	= {19, 32, 0};
-	static int	fire_frames[]	= {5, 0};
-
-	Weapon_Generic (ent, 4, 8, 52, 55, pause_frames, fire_frames, Weapon_Blaster_Fire);
+	static int	fire_frames[]	= {5, 9, 0};	//J NOTE: Frame 5 is where it actually fires.  If I added 7 to this array, it would fire AGAIN.
+	//so both the animaiton is played,  AND the projectile is fired.
+	//"On frame 5 and frame 7 is where we call Weapon_Blaster_Fire"  //J CHANGE:  I made the 2nd frame-cutoff number change from 8 -> 11 bc I wanted slightly more of an interval between firing shotguns
+	Weapon_Generic (ent, 4, 11, 52, 55, pause_frames, fire_frames, Weapon_Blaster_Fire);
 }
 
 
@@ -940,10 +985,12 @@ void Weapon_HyperBlaster_Fire (edict_t *ent)
 
 void Weapon_HyperBlaster (edict_t *ent)
 {
-	static int	pause_frames[]	= {0};
-	static int	fire_frames[]	= {6, 7, 8, 9, 10, 11, 0};
-
-	Weapon_Generic (ent, 5, 20, 49, 53, pause_frames, fire_frames, Weapon_HyperBlaster_Fire);
+	//static int	pause_frames[]	= {0};
+	//static int	fire_frames[]	= {6, 7, 8, 9, 10, 11, 0};
+	static int	pause_frames[] = { 19, 0 }; //J CHANGE:  me copying the basic Blaster's frames
+	static int	fire_frames[] = { 6, 9, 0 }; //6 and 11 is nice timing,  maybe a litttle slow
+					//J CHANGE:   I,, highkey don't even wanna deal with the HyperBlaster's logic LOL.  no.. rotation no nothing.  I just need it to be the Blaster
+	Weapon_Generic (ent, 5, 20, 49, 53, pause_frames, fire_frames, Weapon_HBlaster_Fire);
 }
 
 /*
@@ -960,8 +1007,8 @@ void Machinegun_Fire (edict_t *ent)
 	vec3_t		start;
 	vec3_t		forward, right;
 	vec3_t		angles;
-	int			damage = 8;
-	int			kick = 2;
+	int			damage = 0; //J CHANGE:  original damage was 8
+	int			kick = 0;   //J CHANGE: original kick is 2
 	vec3_t		offset;
 
 	if (!(ent->client->buttons & BUTTON_ATTACK))
@@ -990,8 +1037,8 @@ void Machinegun_Fire (edict_t *ent)
 
 	if (is_quad)
 	{
-		damage *= 4;
-		kick *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
+		kick *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 	}
 
 	for (i=1 ; i<3 ; i++)
@@ -1009,23 +1056,26 @@ void Machinegun_Fire (edict_t *ent)
 		if (ent->client->machinegun_shots > 9)
 			ent->client->machinegun_shots = 9;
 	}
-
-	// get start / end positions
-	VectorAdd (ent->client->v_angle, ent->client->kick_angles, angles);
+	vec3_t zeroes;
+	VectorSet(zeroes, 0, 0, 0);
+	// get start / end positions    //J NOTE: I think the best way to make TP-ing reliable is to NOT add kick_angles here
+	VectorAdd (ent->client->v_angle, zeroes, /*ent->client->kick_angles,*/ angles);
 	AngleVectors (angles, forward, right, NULL);
 	VectorSet(offset, 0, 8, ent->viewheight-8);
 	P_ProjectSource (ent->client, ent->s.origin, offset, forward, right, start);
-	fire_bullet (ent, start, forward, damage, kick, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MOD_MACHINEGUN);
+	fire_bullet (ent, start, forward, damage, kick, DEFAULT_BULLET_HSPREAD, DEFAULT_BULLET_VSPREAD, MOD_MACHINEGUN);  //J HIDE
+	//fire_bullet(ent, start, forward, damage, kick, 1, 1, MOD_MACHINEGUN);
 
 	gi.WriteByte (svc_muzzleflash);
 	gi.WriteShort (ent-g_edicts);
 	gi.WriteByte (MZ_MACHINEGUN | is_silenced);
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//PlayerNoise(ent, start, PNOISE_WEAPON); //J HIDE:  no sound from me
 
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
-		ent->client->pers.inventory[ent->client->ammo_index]--;
+	if (!((int)dmflags->value & DF_INFINITE_AMMO))		//J HIDE  no ammo decrement on mEE
+		ent->client->pers.inventory[20] -= 30;
+		//ent->client->pers.inventory[ent->client->ammo_index]--;
 
 	ent->client->anim_priority = ANIM_ATTACK;
 	if (ent->client->ps.pmove.pm_flags & PMF_DUCKED)
@@ -1133,8 +1183,8 @@ void Chaingun_Fire (edict_t *ent)
 
 	if (is_quad)
 	{
-		damage *= 4;
-		kick *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
+		kick *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 	}
 
 	for (i=0 ; i<3 ; i++)
@@ -1161,7 +1211,7 @@ void Chaingun_Fire (edict_t *ent)
 	gi.WriteByte ((MZ_CHAINGUN1 + shots - 1) | is_silenced);
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//PlayerNoise(ent, start, PNOISE_WEAPON);  //J HIDE   STOPP makin weapon noises!!
 
 	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
 		ent->client->pers.inventory[ent->client->ammo_index] -= shots;
@@ -1190,7 +1240,7 @@ void weapon_shotgun_fire (edict_t *ent)
 	vec3_t		start;
 	vec3_t		forward, right;
 	vec3_t		offset;
-	int			damage = 4;
+	int			damage = 1; //J CHANGE:  used to be 4, but that's 4 per pellet sooo either I decrease the # of pellets, or I see how 1 does
 	int			kick = 8;
 
 	if (ent->client->ps.gunframe == 9)
@@ -1209,14 +1259,14 @@ void weapon_shotgun_fire (edict_t *ent)
 
 	if (is_quad)
 	{
-		damage *= 4;
-		kick *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
+		kick *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 	}
 
 	if (deathmatch->value)
 		fire_shotgun (ent, start, forward, damage, kick, 500, 500, DEFAULT_DEATHMATCH_SHOTGUN_COUNT, MOD_SHOTGUN);
 	else
-		fire_shotgun (ent, start, forward, damage, kick, 500, 500, DEFAULT_SHOTGUN_COUNT, MOD_SHOTGUN);
+		fire_shotgun(ent, start, forward, damage, kick, 1000, 500, DEFAULT_SHOTGUN_COUNT, MOD_SHOTGUN); //J CHANGE:  (Both) spreads used to be 500
 
 	// send muzzle flash
 	gi.WriteByte (svc_muzzleflash);
@@ -1225,10 +1275,10 @@ void weapon_shotgun_fire (edict_t *ent)
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
 	ent->client->ps.gunframe++;
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//PlayerNoise(ent, start, PNOISE_WEAPON); //J HIDE
 
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
-		ent->client->pers.inventory[ent->client->ammo_index]--;
+	/*if (!((int)dmflags->value & DF_INFINITE_AMMO))   //J HIDE  no ammo decrementing for a Sword
+		ent->client->pers.inventory[ent->client->ammo_index]--;*/
 }
 
 void Weapon_Shotgun (edict_t *ent)
@@ -1246,7 +1296,7 @@ void weapon_supershotgun_fire (edict_t *ent)
 	vec3_t		forward, right;
 	vec3_t		offset;
 	vec3_t		v;
-	int			damage = 6;
+	int			damage = 2;
 	int			kick = 12;
 
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
@@ -1259,8 +1309,8 @@ void weapon_supershotgun_fire (edict_t *ent)
 
 	if (is_quad)
 	{
-		damage *= 4;
-		kick *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
+		kick *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 	}
 
 	v[PITCH] = ent->client->v_angle[PITCH];
@@ -1279,10 +1329,11 @@ void weapon_supershotgun_fire (edict_t *ent)
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
 	ent->client->ps.gunframe++;
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//PlayerNoise(ent, start, PNOISE_WEAPON); //J HIDE
 
 	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
-		ent->client->pers.inventory[ent->client->ammo_index] -= 2;
+		ent->client->pers.inventory[20] -= 20;		//J CHANGE:  changing the Supershotgun to use Cells as ammo
+		//ent->client->pers.inventory[ent->client->ammo_index] -= 2;
 }
 
 void Weapon_SuperShotgun (edict_t *ent)
@@ -1318,14 +1369,14 @@ void weapon_railgun_fire (edict_t *ent)
 	}
 	else
 	{
-		damage = 150;
-		kick = 250;
+		damage = 0; //J CHANGE: damage was originally 150
+		kick = 1050;  //J CHANGE:  kick to make it a windblast. Was originally 250
 	}
 
 	if (is_quad)
 	{
-		damage *= 4;
-		kick *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
+		kick *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 	}
 
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
@@ -1344,10 +1395,11 @@ void weapon_railgun_fire (edict_t *ent)
 	gi.multicast (ent->s.origin, MULTICAST_PVS);
 
 	ent->client->ps.gunframe++;
-	PlayerNoise(ent, start, PNOISE_WEAPON);
+	//PlayerNoise(ent, start, PNOISE_WEAPON);  //J HIDE:  no noise.  Wind is rather silent
 
-	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
-		ent->client->pers.inventory[ent->client->ammo_index]--;
+	if (!((int)dmflags->value & DF_INFINITE_AMMO))  //J HIDE  no ammo decrementation
+		ent->client->pers.inventory[20] -= 30;
+		//ent->client->pers.inventory[ent->client->ammo_index]--;
 }
 
 
@@ -1390,7 +1442,8 @@ void weapon_bfg_fire (edict_t *ent)
 
 		ent->client->ps.gunframe++;
 
-		PlayerNoise(ent, ent->s.origin, PNOISE_WEAPON);
+		if (!(ent->client->breather_framenum > level.framenum))  //so long as I don't have the rebreather on
+			PlayerNoise(ent, ent->s.origin, PNOISE_WEAPON);
 		return;
 	}
 
@@ -1403,7 +1456,7 @@ void weapon_bfg_fire (edict_t *ent)
 	}
 
 	if (is_quad)
-		damage *= 4;
+		damage *= 2;  //J CHANGE change quad to 2 (was 4. obvi)
 
 	AngleVectors (ent->client->v_angle, forward, right, NULL);
 
@@ -1420,10 +1473,11 @@ void weapon_bfg_fire (edict_t *ent)
 
 	ent->client->ps.gunframe++;
 
-	PlayerNoise(ent, start, PNOISE_WEAPON);
-
+	if (!(ent->client->breather_framenum > level.framenum)) //so long as I don't have the rebreather on
+		PlayerNoise(ent, start, PNOISE_WEAPON);
+	gi.cprintf(ent, PRINT_HIGH, "The ammo index for Cells should be %i\n", ent->client->ammo_index);
 	if (! ( (int)dmflags->value & DF_INFINITE_AMMO ) )
-		ent->client->pers.inventory[ent->client->ammo_index] -= 50;
+		ent->client->pers.inventory[ent->client->ammo_index] -= 250; //J CHANGE:  original number was 50
 }
 
 void Weapon_BFG (edict_t *ent)

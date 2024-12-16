@@ -144,8 +144,8 @@ void SP_turret_breach (edict_t *self);
 void SP_turret_base (edict_t *self);
 void SP_turret_driver (edict_t *self);
 
-//THIS is the "big dog" list of things.  These are all spwn functions for various entities
-spawn_t	spawns[] = {
+//J NOTE: THIS is the "big dog" list of things.  These are all spawn functions for various entities
+spawn_t	spawns[] = {							//lmfao do not add one.  Maps won't have it, you'd have to make your own
 	{"item_health", SP_item_health},
 	{"item_health_small", SP_item_health_small},
 	{"item_health_large", SP_item_health_large},
@@ -200,11 +200,11 @@ spawn_t	spawns[] = {
 	{"target_help", SP_target_help},
 	{"target_actor", SP_target_actor},
 	{"target_lightramp", SP_target_lightramp},
-	{"target_earthquake", SP_target_earthquake},
+	{"target_earthquake", SP_target_earthquake},	 
 	{"target_character", SP_target_character},
-	{"target_string", SP_target_string},
+	{"target_string", SP_target_string},			
 
-	{"worldspawn", SP_worldspawn},
+	{"worldspawn", SP_worldspawn},	//J NOTE: worldspawn !   Can't break this one  :D  or else the map doesn't work
 	{"viewthing", SP_viewthing},
 
 	{"light", SP_light},
@@ -253,8 +253,8 @@ spawn_t	spawns[] = {
 	{"monster_brain", SP_monster_brain},
 	{"monster_floater", SP_monster_floater},
 	{"monster_hover", SP_monster_hover},
-	{"monster_mutant", SP_monster_mutant},
-	{"monster_supertank", SP_monster_supertank},
+	{"monster_mutant", SP_monster_mutant},		//J NOTE: you can override what's in the Map files, by switching out One function for another.
+	{"monster_supertank", SP_monster_supertank},	//Whenever the map looks for a Monster_supretank, you could get a monster_gunner instead
 	{"monster_boss2", SP_monster_boss2},
 	{"monster_boss3_stand", SP_monster_boss3_stand},
 	{"monster_jorg", SP_monster_jorg},
@@ -268,6 +268,26 @@ spawn_t	spawns[] = {
 	{NULL, NULL}
 };
 
+//J START / J NOTE:  a funciton he made to spawn your own entity at a place  ?
+void spawn_monster_at(const char* classname, vec3_t position)
+{
+	spawn_t* s;
+	edict_t* spawn = NULL;
+	if (!classname) return;
+	spawn = G_Spawn(); //so spawn us in an entity.
+	if (!spawn) return;	//never trust pointers
+	VectorCopy(position, spawn->s.origin);		//copy the position provided in the function to the Entity's origin point
+	spawn->classname = classname;	//Give it the classname we provided
+	for (s = spawns; s->name; s++) {	//WHILE  s has a name, iterate through the Big Dog list
+		if (!strcmp(s->name, spawn->classname))	//this if conditional taken from right below us, the Check normal spawn functions
+		{	// found it
+			s->spawn(spawn);
+			return;
+		}
+	}
+	G_FreeEdict(spawn);
+}
+
 /*
 ===============
 ED_CallSpawn
@@ -275,7 +295,7 @@ ED_CallSpawn
 Finds the spawn function for the entity and calls it
 ===============
 */
-void ED_CallSpawn (edict_t *ent)
+void ED_CallSpawn (edict_t *ent)	//Called when the map is parsed
 {
 	spawn_t	*s;
 	gitem_t	*item;
@@ -857,7 +877,7 @@ void SP_worldspawn (edict_t *ent)
 
 	snd_fry = gi.soundindex ("player/fry.wav");	// standing in lava / slime
 
-	PrecacheItem (FindItem ("Blaster"));
+	PrecacheItem (FindItem ("Shurikens")); //J CHANGE BLASTER:  I want to change the name of the Blaster so
 
 	gi.soundindex ("player/lava1.wav");
 	gi.soundindex ("player/lava2.wav");

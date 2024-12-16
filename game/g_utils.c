@@ -356,13 +356,13 @@ float vectoyaw (vec3_t vec)
 void vectoangles (vec3_t value1, vec3_t angles)
 {
 	float	forward;
-	float	yaw, pitch;
-	
+	float	yaw, pitch;	//Pitch is up and down from the nose.   Yaw is turn my wings left and right.  Roll is spinnyyyy cylindrical
+
 	if (value1[1] == 0 && value1[0] == 0)
 	{
 		yaw = 0;
-		if (value1[2] > 0)
-			pitch = 90;
+		if (value1[2] > 0)	//oh yes duh ofc  because if no Forward/Back  AND no Left/Right, no matter how long my Value1 vector is
+			pitch = 90;	//that shit is goin STRAIGHT up   or straight down.
 		else
 			pitch = 270;
 	}
@@ -423,14 +423,14 @@ edict_t *G_Spawn (void)
 	edict_t		*e;
 
 	e = &g_edicts[(int)maxclients->value+1];
-	for ( i=maxclients->value+1 ; i<globals.num_edicts ; i++, e++)
+	for ( i=maxclients->value+1 ; i<globals.num_edicts ; i++, e++)	//iterate through list until end
 	{
 		// the first couple seconds of server time can involve a lot of
 		// freeing and allocating, so relax the replacement policy
-		if (!e->inuse && ( e->freetime < 2 || level.time - e->freetime > 0.5 ) )
+		if (!e->inuse && ( e->freetime < 2 || level.time - e->freetime > 0.5 ) )	//when one that's NOT in use is found
 		{
-			G_InitEdict (e);
-			return e;
+			G_InitEdict (e);		//initialize it
+			return e;				//return (the pointer to) it
 		}
 	}
 	

@@ -245,6 +245,7 @@ void Cmd_Give_f (edict_t *ent)
 
 	if (give_all)
 	{
+		//ent->client->pers.stealthLevel = 30;
 		for (i=0 ; i<game.num_items ; i++)
 		{
 			it = itemlist + i;
@@ -907,6 +908,14 @@ void Cmd_RocketJump_f(edict_t* ent)
 	fire_rocket(ent, ent->s.origin, forward, 10, 1000, 100, 100);
 }
 
+void Cmd_RaiseStealthLevel_f(edict_t* ent)
+{
+	if (ent->client->pers.stealthLevel < 30)  //ONLY if we're not at the max yet
+		ent->client->pers.stealthLevel++;
+	else ent->client->pers.stealthLevel = 30;
+	gi.cprintf(ent, PRINT_HIGH, "Your Stealth Level is now %d\n", ent->client->pers.stealthLevel);
+}
+
 /*
 =================
 ClientCommand
@@ -996,6 +1005,8 @@ void ClientCommand (edict_t *ent) //The entity doing the command.
 		Cmd_PlayerList_f(ent);
 	else if (Q_stricmp(cmd, "rocketJump") == 0) //J START
 		Cmd_RocketJump_f(ent);
+	else if (Q_stricmp(cmd, "stealthRaise") == 0)
+		Cmd_RaiseStealthLevel_f(ent);
 	else	// anything that doesn't match a command will be a chat
 		Cmd_Say_f (ent, false, true);
 }

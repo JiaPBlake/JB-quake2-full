@@ -133,7 +133,7 @@ This is an internal support routine used for bullet/pellet based weapons.
 */
 static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick, int te_impact, int hspread, int vspread, int mod)
 {
-	trace_t		tr;
+	trace_t		tr; //J NOTE: change the end pos of the trace so that the bullets only hit RIGHT in front of me
 	vec3_t		dir;
 	vec3_t		forward, right, up;
 	vec3_t		end;
@@ -142,18 +142,41 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 	vec3_t		water_start;
 	qboolean	water = false;
 	int			content_mask = MASK_SHOT | MASK_WATER;
-
+	//THIS TRACE I think is just for self-collision..?
 	tr = gi.trace (self->s.origin, NULL, NULL, start, self, MASK_SHOT);	//J NOTE: The Trace collided with something IF 0 < x < 1
 	if (!(tr.fraction < 1.0))	//J NOTE: If we DIDN'T hit something. Go ahead and do the extra math:
 	{	//I think it takes aimDir  and creates a direction dir out of it.  Left goes into --> Right
-		vectoangles (aimdir, dir);	//Takes a Direction.  Wanna get the Yaw Pitch and Roll out of it.  (Roll is always 0)
-		AngleVectors (dir, forward, right, up);
+		vectoangles (aimdir, dir);	//Takes a Direction vector saves the angle it's at.  Wanna get the Yaw Pitch and Roll out of it.  (Roll is always 0)
+		AngleVectors (dir, forward, right, up);  //I think he said this functions RETURNS our forward direction, right, and up
 
 		r = crandom()*hspread;
 		u = crandom()*vspread;
-		VectorMA (start, 8192, forward, end);	//J NOTE: 8192 is the size of the map in Quake Units
-		VectorMA (end, r, right, end);	//Take the End position,   Multipy the Right vector BY the R,  and store it back in end
-		VectorMA (end, u, up, end);	//Creates variation that will lead to a cone-shaped Spread. The closer you are to the start, the less varied your Relative POSITION
+		//J START:  I want the shotguns to be Swords  (close-range
+		if(te_impact == TE_SHOTGUN) {
+			r = r / 75;
+			u = u / 75;
+			int swordScale = 80;
+			//int ssindex = ITEM_INDEX(FindItem("super shotgun"));   //this index evaluates to 9.  but it works for both shotguns
+			if ( /*self->client->pers.inventory[ssindex]*/ self->client &&  Q_stricmp(self->client->pers.weapon->classname, "weapon_supershotgun") == 0) {
+				//gi.cprintf(self->owner, PRINT_HIGH, "User used a supershotgun.\n"); //Okay! ok that strcmp works properly
+				swordScale = 160;
+			}
+
+			//gi.cprintf(self->owner, PRINT_HIGH, "R is: %0.4f,  U is: %0.4f\n", r, u); //J NOTE: was for testing purposes
+			VectorMA(start, swordScale, forward, end);	//J NOTE: 8192 is the size of the map in Quake Units
+			VectorMA(end, r, right, end);	//Scales the Right vector BY the R, adds it to End and stores it back in End
+			VectorMA(end, u, up, end);
+			//gi.cprintf(self->owner, PRINT_HIGH, "In Shotgun branch of fire_lead\n"); //works
+		}
+		else if (self->client && te_impact == TE_GUNSHOT && Q_stricmp(self->client->pers.weapon->classname, "weapon_machinegun") == 0) {
+			VectorMA(start, 8192, forward, end);	//LMFAO MY CROSSHAIR IS NOTTTT ACCURATE TO MY VIEWING ANGLE FUCK.  oh well
+			//gi.cprintf(self->owner, PRINT_HIGH, "Machinegun no spread.\n"); //J NOTE: for testing purposes
+		}
+		else { //J END
+			VectorMA(start, 8192, forward, end);	//J NOTE: 8192 is the size of the map in Quake Units
+			VectorMA(end, r, right, end);	//These 2 MA calls are to create a spread
+			VectorMA(end, u, up, end);	//Creates variation that will lead to a cone-shaped Spread. The closer you are to the start, the less varied your Relative POSITION
+		}
 
 		if (gi.pointcontents (start) & MASK_WATER)	//if the start point of the Game world has the Water Flag set to true
 		{	//if we're firing from WITHIN water.
@@ -214,11 +237,12 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 			tr = gi.trace (water_start, NULL, NULL, end, self, MASK_SHOT);
 		}
 	}
+	
 
 	// send gun puff / flash
 	if (!((tr.surface) && (tr.surface->flags & SURF_SKY)))
 	{
-		if (tr.fraction < 1.0)
+		if (tr.fraction < 1.0) //if we hit something
 		{
 			if (tr.ent->takedamage)
 			{
@@ -234,10 +258,24 @@ static void fire_lead (edict_t *self, vec3_t start, vec3_t aimdir, int damage, i
 					gi.WriteDir (tr.plane.normal);
 					gi.multicast (tr.endpos, MULTICAST_PVS);
 
-					if (self->client)
-						PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+					if (self->client) {
+						//I only want to make an impact noise if I'm a chaingun tbh
+						if(mod == MOD_CHAINGUN)
+							PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+					} //end of Client if
 				}
 			}
+		}
+	}
+
+	//J START  if we're a gunshot, check if we hit a surface
+	if (te_impact == TE_GUNSHOT && mod==MOD_MACHINEGUN && self->client) {
+		if (tr.surface) {
+			vec3_t newEnd;
+			gi.cprintf(self->owner, PRINT_HIGH, "Machinegun hit a surface.\n"); //J NOTE: was for testing purposes
+			//use the  normal vector  from the Trace's plane member.   although it has this boolean: allsolid that's True if the plane isn't valid
+			VectorCopy(tr.endpos, newEnd);
+			VectorMA(newEnd, 18, tr.plane.normal, self->s.origin);
 		}
 	}
 
@@ -316,8 +354,8 @@ void blaster_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *
 		return;
 	}
 
-	if (self->owner->client)
-		PlayerNoise(self->owner, self->s.origin, PNOISE_IMPACT);
+	//if (self->owner->client)  //J HIDE  Blaster makes no sound
+	//	PlayerNoise(self->owner, self->s.origin, PNOISE_IMPACT);
 
 	if (other->takedamage)
 	{
@@ -395,14 +433,61 @@ void fire_blaster (edict_t *self, vec3_t start, vec3_t dir, int damage, int spee
 fire_grenade
 =================
 */
-static void Grenade_Explode (edict_t *ent)
+//J START
+static void Grenade_TP(edict_t* ent) {
+	//int			tpTimer =300;
+	//int			waitFlag = 1;
+	//edict_t*		player = ent->owner;
+	gitem_t*		item;
+	item = FindItem("Grenades");
+	//if (item) {  //all of this was purely for understanding HOW to check current weapon.  I got it now tho :D
+	//	int index = ITEM_INDEX(item);
+	//	gi.cprintf(ent->owner, PRINT_HIGH, "Grenade's ITEM INDEX is: %i\n", index);  //Grenade's ITEM index is 12
+	//	if (item == ent->owner->client->pers.weapon) { //nvm :D  this works!!
+	//		gi.cprintf(ent->owner, PRINT_HIGH, "Our weapon IS grenade\n");
+	//	}
+	//}
+	//else { gi.cprintf(ent->owner, PRINT_HIGH, "Grenade not found \n"); }
+
+	if (ent) {
+		//ent->owner->client->latched_buttons &= ~BUTTON_ATTACK;	//idek the difference between latched_ vs buttons but shit don't matter
+		//ent->owner->client->buttons &= ~BUTTON_ATTACK;
+		if (  (ent->owner->client->latched_buttons | ent->owner->client->buttons) & BUTTON_ATTACK && item && (item == ent->owner->client->pers.weapon) ) //J NOTE:  take note of this to use it for TP-ing back
+		{
+			gi.cprintf(ent->owner, PRINT_HIGH, "Teleporting\n");
+			VectorCopy(ent->s.origin, ent->owner->s.origin);
+			ent->owner->s.origin[2] += (ent->owner->viewheight + 1);	// make sure off ground
+
+			if (!((int)dmflags->value & DF_INFINITE_AMMO))
+				ent->owner->client->pers.inventory[ent->owner->client->ammo_index] -= 80;
+
+			ent->owner->tpOut = false;
+			ent->owner->teleport_time = level.time;   //there's a tp_time check that happens in g_ai.c in the checkAttack function ~L.807 I wanna see if this can help me get their aggro off ME and not just my Noise obejct
+			G_FreeEdict(ent);
+			//break;
+		}
+		//gi.cprintf(ent->owner, PRINT_HIGH, "decrementing tp Timer\n");  //suddenly uncommenting out this print statement breaks the game...
+		//tpTimer--;
+		
+		//gi.cprintf(ent->owner, PRINT_HIGH, "Returning from TP in g_weapon.c\n");
+		//G_FreeEdict (ent);
+		ent->nextthink = level.time + 0.1;
+	}
+}//J END
+
+static void Grenade_Explode(edict_t* ent)
 {
 	vec3_t		origin;
 	int			mod;
+	//J START
+	int			tpTimer = 100;
+	edict_t*	player;
+	if (!ent) { return; }
 
-	if (ent->owner->client)
-		PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
-
+	if (ent->owner->client) {  //smoke bombs are silent, dummy!!
+		//PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT); //J NOTE: this is another example of smth only making soudn AT the origin it landed
+		player = ent->owner;
+	}
 	//FIXME: if we are onground then raise our Z just a bit since we are a point?
 	if (ent->enemy)
 	{
@@ -410,16 +495,16 @@ static void Grenade_Explode (edict_t *ent)
 		vec3_t	v;
 		vec3_t	dir;
 
-		VectorAdd (ent->enemy->mins, ent->enemy->maxs, v);
-		VectorMA (ent->enemy->s.origin, 0.5, v, v);
-		VectorSubtract (ent->s.origin, v, v);
-		points = ent->dmg - 0.5 * VectorLength (v);
-		VectorSubtract (ent->enemy->s.origin, ent->s.origin, dir);
+		VectorAdd(ent->enemy->mins, ent->enemy->maxs, v);
+		VectorMA(ent->enemy->s.origin, 0.5, v, v);
+		VectorSubtract(ent->s.origin, v, v);
+		points = ent->dmg - 0.5 * VectorLength(v);
+		VectorSubtract(ent->enemy->s.origin, ent->s.origin, dir);
 		if (ent->spawnflags & 1)
 			mod = MOD_HANDGRENADE;
 		else
 			mod = MOD_GRENADE;
-		T_Damage (ent->enemy, ent, ent->owner, dir, ent->s.origin, vec3_origin, (int)points, (int)points, DAMAGE_RADIUS, mod);
+		//T_Damage (ent->enemy, ent, ent->owner, dir, ent->s.origin, vec3_origin, (int)points, (int)points, DAMAGE_RADIUS, mod);
 	}
 
 	if (ent->spawnflags & 2)
@@ -428,27 +513,54 @@ static void Grenade_Explode (edict_t *ent)
 		mod = MOD_HG_SPLASH;
 	else
 		mod = MOD_G_SPLASH;
-	T_RadiusDamage(ent, ent->owner, ent->dmg, ent->enemy, ent->dmg_radius, mod);
+	//T_RadiusDamage(ent, ent->owner, ent->dmg, ent->enemy, ent->dmg_radius, mod);
 
-	VectorMA (ent->s.origin, -0.02, ent->velocity, origin);
-	gi.WriteByte (svc_temp_entity);
+	VectorMA(ent->s.origin, -0.02, ent->velocity, origin);
+	gi.WriteByte(svc_temp_entity);
 	if (ent->waterlevel)
 	{
 		if (ent->groundentity)
-			gi.WriteByte (TE_GRENADE_EXPLOSION_WATER);
+			gi.WriteByte(TE_GRENADE_EXPLOSION_WATER);
 		else
-			gi.WriteByte (TE_ROCKET_EXPLOSION_WATER);
+			gi.WriteByte(TE_ROCKET_EXPLOSION_WATER);
 	}
 	else
 	{
 		if (ent->groundentity)
-			gi.WriteByte (TE_GRENADE_EXPLOSION);
+			gi.WriteByte(TE_GRENADE_EXPLOSION);
 		else
-			gi.WriteByte (TE_ROCKET_EXPLOSION);
+			gi.WriteByte(TE_ROCKET_EXPLOSION);
 	}
-	gi.WritePosition (origin);
-	gi.multicast (ent->s.origin, MULTICAST_PHS);
-
+	gi.WritePosition(origin);
+	gi.multicast(ent->s.origin, MULTICAST_PHS);
+	//gi.cprintf(ent->owner, PRINT_HIGH, "in the EXPLODING THINK FUNCTION at leveltime: %0.4f\n", level.time);
+	
+	//I shouldn't use this block anymore.  Because I made it such that Hand Held grenades use a different Think function
+	//while (tpTimer != 0) {
+	//	if (ent->owner->client->buttons & BUTTON_ATTACK) //J NOTE:  take note of this to use it for TP-ing back
+	//	{
+	//		gi.cprintf(ent->owner, PRINT_HIGH, "I pressed left click again\n");
+	//		VectorCopy(ent->s.origin, ent->owner->s.origin);
+	//		ent->owner->s.origin[2] += 1;	// make sure off ground
+	//		G_FreeEdict(ent);
+	//		break;
+	//	}
+	//	//gi.cprintf(ent->owner, PRINT_HIGH, "decrementing tp Timer\n");
+	//	tpTimer--;
+	//}
+	// 
+	//Once the grenade explodes, give me 5 seconds of invis time
+	if (ent->owner->client) {  //whoops.  nearly forgot. ONLY if the owner of this grenade is a player
+		gitem_t* item;
+		item = FindItem("Invulnerability");  //bc FindItem works based off the pickupName
+		if (Q_stricmp(item->classname, "item_invulnerability") == 0) { //idk.. just a double layer of security to make sure we found the rightt powerup
+			item->quantity = 200;  //change the quality,  which means Flag this use of the powerup as coming from a smoke bomb
+			item->use(ent->owner, item);  //CALL the Use function
+			//this line does not work.  We have to actually CALL the use function.  Hold on. it's possible I'm an idiot and just forgot to add level.framenum... ent->owner->client->invincible_framenum += 50;
+			//gi.cprintf(ent->owner, PRINT_HIGH, "Smoke bomb went off\n");
+		}
+		else gi.cprintf(ent->owner, PRINT_HIGH, "WHAT THE FUCK WE DIDN'T FIND THE POWERUP??\n");
+	}
 	G_FreeEdict (ent);
 }
 
@@ -516,33 +628,34 @@ void fire_grenade (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int s
 	gi.linkentity (grenade);
 }
 
-void fire_grenade2 (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int speed, float timer, float damage_radius, qboolean held)
+void fire_grenade2(edict_t* self, vec3_t start, vec3_t aimdir, int damage, int speed, float timer, float damage_radius, qboolean held)
 {
-	edict_t	*grenade;
+	edict_t* grenade;
 	vec3_t	dir;
 	vec3_t	forward, right, up;
 
-	vectoangles (aimdir, dir);
-	AngleVectors (dir, forward, right, up);
+	vectoangles(aimdir, dir);
+	AngleVectors(dir, forward, right, up);
 
 	grenade = G_Spawn();
-	VectorCopy (start, grenade->s.origin);
-	VectorScale (aimdir, speed, grenade->velocity);
-	VectorMA (grenade->velocity, 200 + crandom() * 10.0, up, grenade->velocity);
-	VectorMA (grenade->velocity, crandom() * 10.0, right, grenade->velocity);
-	VectorSet (grenade->avelocity, 300, 300, 300);
-	grenade->movetype = MOVETYPE_BOUNCE;
+	VectorCopy(start, grenade->s.origin);
+	VectorScale(aimdir, speed, grenade->velocity); //J NOTE: having changed the speed to 0 (for Players only), this should just give it 0 velocity
+	VectorMA(grenade->velocity, 200 + crandom() * 10.0, up, grenade->velocity);
+	VectorMA(grenade->velocity, crandom() * 10.0, right, grenade->velocity);
+	VectorSet(grenade->avelocity, 300, 300, 300); //  idk what an Avelocity is.  but my 0 speed idea works perfectly
+	grenade->movetype = MOVETYPE_BOUNCE; //interested to see if I could change this movetype from MOVETYPE_BOUNCE to MOVETYPE_STOP
 	grenade->clipmask = MASK_SHOT;
 	grenade->solid = SOLID_BBOX;
 	grenade->s.effects |= EF_GRENADE;
-	VectorClear (grenade->mins);
-	VectorClear (grenade->maxs);
-	grenade->s.modelindex = gi.modelindex ("models/objects/grenade2/tris.md2");
+	VectorClear(grenade->mins);
+	VectorClear(grenade->maxs);
+	grenade->s.modelindex = gi.modelindex("models/objects/grenade2/tris.md2");
 	grenade->owner = self;
 	grenade->touch = Grenade_Touch;
-	grenade->nextthink = level.time + timer;
-	grenade->think = Grenade_Explode;
-	grenade->dmg = damage;
+	grenade->nextthink = level.time + timer; //I think this means it only starts thinking once the timer for it to explode goes off
+	gi.cprintf(self->owner, PRINT_HIGH, "in fire_gren2 function at leveltime: %0.4f\n", level.time);
+	grenade->think = Grenade_TP;//Grenade_Explode;  //hence why it's think is an explode,, interesting.  
+	grenade->dmg = damage;							// but I wonder if this is needed since the explode function is also called down there...
 	grenade->dmg_radius = damage_radius;
 	grenade->classname = "hgrenade";
 	if (held)
@@ -550,9 +663,12 @@ void fire_grenade2 (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int 
 	else
 		grenade->spawnflags = 1;
 	grenade->s.sound = gi.soundindex("weapons/hgrenc1b.wav");
-
-	if (timer <= 0.0)
-		Grenade_Explode (grenade);
+	//HOLD UP!!  after changing the think funciton this never happens !! 
+	if (timer <= 0.0) //J START:  for the teleport beacon,  change this from an explosion to a Teleport to where-ever the grenade is
+	{
+		Grenade_Explode(grenade);
+		gi.cprintf(self->owner, PRINT_HIGH, "Grenade exploded 'cause timer less than 0\n"); //J START <--
+	}
 	else
 	{
 		gi.sound (self, CHAN_WEAPON, gi.soundindex ("weapons/hgrent1a.wav"), 1, ATTN_NORM, 0);
@@ -580,8 +696,10 @@ void rocket_touch (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *su
 		return;
 	}
 
-	if (ent->owner->client)
-		PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
+	if (ent->owner->client) {
+		//PlayerNoise(ent->owner, ent->s.origin, PNOISE_IMPACT);
+			//gi.cprintf(ent->owner, PRINT_HIGH, "Rocket just made an impact sound\n"); //J NOTE  / J COMMENT
+	}
 
 	// calculate position for the explosion entity
 	VectorMA (ent->s.origin, -0.02, ent->velocity, origin);
@@ -603,8 +721,8 @@ void rocket_touch (edict_t *ent, edict_t *other, cplane_t *plane, csurface_t *su
 			}
 		}
 	}
-
-	T_RadiusDamage(ent, ent->owner, ent->radius_dmg, other, ent->dmg_radius, MOD_R_SPLASH);
+	//J CHANGE  //J HIDE:  no radius damage on me
+	//T_RadiusDamage(ent, ent->owner, ent->radius_dmg, other, ent->dmg_radius, MOD_R_SPLASH);
 
 	gi.WriteByte (svc_temp_entity);
 	if (ent->waterlevel)
@@ -708,8 +826,10 @@ void fire_rail (edict_t *self, vec3_t start, vec3_t aimdir, int damage, int kick
 		gi.multicast (tr.endpos, MULTICAST_PHS);
 	}
 
-	if (self->client)
-		PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+	if (self->client) {
+		if (!(self->client->breather_framenum > level.framenum))
+			PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+	}
 }
 
 
@@ -766,9 +886,12 @@ void bfg_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *surf
 {
 	if (other == self->owner)
 		return;
-
+	//J START
+	vec3_t newEnd;
+	VectorCopy(self->s.origin, newEnd);
 	if (surf && (surf->flags & SURF_SKY))
 	{
+		VectorMA(newEnd, 20, plane->normal, self->owner->s.origin);
 		G_FreeEdict (self);
 		return;
 	}
@@ -780,6 +903,10 @@ void bfg_touch (edict_t *self, edict_t *other, cplane_t *plane, csurface_t *surf
 	if (other->takedamage)
 		T_Damage (other, self, self->owner, self->velocity, self->s.origin, plane->normal, 200, 0, 0, MOD_BFG_BLAST);
 	T_RadiusDamage(self, self->owner, 200, other, 100, MOD_BFG_BLAST);
+	//J START:   tp me :)
+	//gi.cprintf(self->owner, PRINT_HIGH, "Machinegun hit a surface.\n"); //J NOTE: was for testing purposes
+	//use the  normal vector  from the Trace's plane member.   although it has this boolean: allsolid that's True if the plane isn't valid
+	VectorMA(newEnd, 20, plane->normal, self->owner->s.origin);
 
 	gi.sound (self, CHAN_VOICE, gi.soundindex ("weapons/bfg__x1b.wav"), 1, ATTN_NORM, 0);
 	self->solid = SOLID_NOT;

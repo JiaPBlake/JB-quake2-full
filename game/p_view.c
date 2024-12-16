@@ -600,13 +600,15 @@ void P_WorldEffects (void)
 	//
 	if (!old_waterlevel && waterlevel)
 	{
-		PlayerNoise(current_player, current_player->s.origin, PNOISE_SELF);
-		if (current_player->watertype & CONTENTS_LAVA)
-			gi.sound (current_player, CHAN_BODY, gi.soundindex("player/lava_in.wav"), 1, ATTN_NORM, 0);
-		else if (current_player->watertype & CONTENTS_SLIME)
-			gi.sound (current_player, CHAN_BODY, gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0);
-		else if (current_player->watertype & CONTENTS_WATER)
-			gi.sound (current_player, CHAN_BODY, gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0);
+		if (!(current_player->client->breather_framenum > level.framenum)) { //J START.  if I have the rebreather on, I'm COMPLETELY silent	
+			PlayerNoise(current_player, current_player->s.origin, PNOISE_SELF);
+			if (current_player->watertype & CONTENTS_LAVA)
+				gi.sound(current_player, CHAN_BODY, gi.soundindex("player/lava_in.wav"), 1, ATTN_NORM, 0);
+			else if (current_player->watertype & CONTENTS_SLIME)
+				gi.sound(current_player, CHAN_BODY, gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0);
+			else if (current_player->watertype & CONTENTS_WATER)
+				gi.sound(current_player, CHAN_BODY, gi.soundindex("player/watr_in.wav"), 1, ATTN_NORM, 0);
+		} //J END
 		current_player->flags |= FL_INWATER;
 
 		// clear damage_debounce, so the pain sound will play immediately

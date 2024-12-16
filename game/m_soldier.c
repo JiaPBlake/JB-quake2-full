@@ -1194,7 +1194,7 @@ void soldier_die (edict_t *self, edict_t *inflictor, edict_t *attacker, int dama
 
 
 //
-// SPAWN
+// SPAWN		JNOTE: function to spawn your own entity   ?  This is where he started making it, then cut/pasted it into g_spawn
 //
 
 void SP_monster_soldier_x (edict_t *self)

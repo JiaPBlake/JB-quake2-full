@@ -302,35 +302,40 @@ Draw help computer.
 void HelpComputer (edict_t *ent)
 {
 	char	string[1024];
-	char	*sk;
+	char	*sk;	//J NOTE: skill level
 
 	if (skill->value == 0)
-		sk = "easy";
+		sk = "Soybaby";	//statically allocated array   When the function goes away, THIS goes away with it
 	else if (skill->value == 1)
-		sk = "medium";
+		sk = "Genin"; //J CHANGE: medium 
 	else if (skill->value == 2)
-		sk = "hard";
+		sk = "Chuunin"; //J CHANGE: hard
 	else
-		sk = "hard+";
-
-	// send the layout
-	Com_sprintf (string, sizeof(string),
+		sk = "Jounin"; //J CHANGE: legit
+	//
+	// send the layout	J NOTE:	Starts off with an X and Y vector.  It draws a Picture named 'help'  help.pcx
+	//J START:		//Open the console with the ~ key, and use the command 'give all' to give yourself all the weapons and test them out! Otherwise, you can Play Quake like normal and progress through, unlocking different weapons and abilities!
+	char myhelp1[1000] = "Quake but it's a stealth game :) Based on Aragami, you can use the darkness to your advantage.";
+	char myhelp2[1000] = "Teleport to dark places to make your way around, stealth killing enemies and progressing through the levels";
+	Com_sprintf (string, sizeof(string),	//J NOTE: Taking the length of the string to prevent Overload
 		"xv 32 yv 8 picn help "			// background
 		"xv 202 yv 12 string2 \"%s\" "		// skill
-		"xv 0 yv 24 cstring2 \"%s\" "		// level name
+		"xv 0 yv 24 cstring2 \"%s\" "		// level name	cstring is Centered, and prints on multiple lines
 		"xv 0 yv 54 cstring2 \"%s\" "		// help 1
 		"xv 0 yv 110 cstring2 \"%s\" "		// help 2
 		"xv 50 yv 164 string2 \" kills     goals    secrets\" "
 		"xv 50 yv 172 string2 \"%3i/%3i     %i/%i       %i/%i\" ", 
-		sk,
-		level.level_name,
-		game.helpmessage1,
-		game.helpmessage2,
-		level.killed_monsters, level.total_monsters, 
+		sk,	//skill
+		level.level_name,	//level name
+		//game.helpmessage1,	//help message 1  wait.  I could just... change it, here....
+		myhelp1,  //HOLY SHIT IT WORKS!!!
+		//game.helpmessage2,	//help message 2  - both taken from the Map file itself
+		myhelp2,
+		level.killed_monsters, level.total_monsters, //0 padding the Integers it to be 3 digits
 		level.found_goals, level.total_goals,
 		level.found_secrets, level.total_secrets);
 
-	gi.WriteByte (svc_layout);
+	gi.WriteByte (svc_layout);	//J NOTE: Service_layout expecting a (null-terminated) string following that
 	gi.WriteString (string);
 	gi.unicast (ent, true);
 }

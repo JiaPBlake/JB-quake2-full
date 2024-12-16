@@ -258,7 +258,7 @@ returns the range catagorization of an entity reletive to self
 0	melee range, will become hostile even if back is turned
 1	visibility and infront, or visibility and show hostile
 2	infront and show hostile
-3	only triggered by damage
+3	only triggered by damage			//J NOTE: I'm definitely gonna wanna mess around with this
 =============
 */
 int range (edict_t *self, edict_t *other)
@@ -270,9 +270,9 @@ int range (edict_t *self, edict_t *other)
 	len = VectorLength (v);
 	if (len < MELEE_DISTANCE)
 		return RANGE_MELEE;
-	if (len < 500)
+	if (len < 250)  //J CHANGE:  range   default NEAR was 500
 		return RANGE_NEAR;
-	if (len < 1000)
+	if (len < 500)		//J CHANGE:  default MID was ' < 1000'
 		return RANGE_MID;
 	return RANGE_FAR;
 }
@@ -286,6 +286,11 @@ returns 1 if the entity is visible to self, even if not infront ()
 */
 qboolean visible (edict_t *self, edict_t *other)
 {
+	//J START.  if I'm invisible,  you can't see me.  IMMEDIATELY return false.
+	if (other->client && other->client->invincible_framenum > level.framenum) {
+		return false;
+	}
+	//J END
 	vec3_t	spot1;
 	vec3_t	spot2;
 	trace_t	trace;
@@ -294,7 +299,7 @@ qboolean visible (edict_t *self, edict_t *other)
 	spot1[2] += self->viewheight;
 	VectorCopy (other->s.origin, spot2);
 	spot2[2] += other->viewheight;
-	trace = gi.trace (spot1, vec3_origin, vec3_origin, spot2, self, MASK_OPAQUE);
+	trace = gi.trace (spot1, vec3_origin, vec3_origin, spot2, self, MASK_OPAQUE);  //J NOTE: "The question the trace is aking" he said,  is: Is anything (a wall, etc) in my way.  and if not !!! HENCE they are visible
 	
 	if (trace.fraction == 1.0)
 		return true;
@@ -311,32 +316,37 @@ returns 1 if the entity is in front (in sight) of self
 */
 qboolean infront (edict_t *self, edict_t *other)
 {
+	//J START.  if I'm invisible,  you can't see me.  IMMEDIATELY return false.
+	if (other->client && other->client->invincible_framenum > level.framenum) {
+		return false;
+	}
+	//J END
 	vec3_t	vec;
 	float	dot;
 	vec3_t	forward;
 	
 	AngleVectors (self->s.angles, forward, NULL, NULL);
 	VectorSubtract (other->s.origin, self->s.origin, vec);
-	VectorNormalize (vec);
+	VectorNormalize (vec); //J NOTE: yeah, this normalizes it to set its length to 1
 	dot = DotProduct (vec, forward);
 	
-	if (dot > 0.3)
+	if (dot > 0.3)	//basically..  if forward is 
 		return true;
 	return false;
 }
 
 
 //============================================================================
-
-void HuntTarget (edict_t *self)
+//J NOTE:  sets ->goalentity
+void HuntTarget (edict_t *self)  //J NOTE: is this the actual attack function..?
 {
 	vec3_t	vec;
 
-	self->goalentity = self->enemy;
+	self->goalentity = self->enemy;  //J NOTE:  remember, this is already set (by monster_use()) by the time HuntTarget() is called 
 	if (self->monsterinfo.aiflags & AI_STAND_GROUND)
-		self->monsterinfo.stand (self);
+		self->monsterinfo.stand (self);        //see,, this is really interesting 'cause like all this does is set the Monster's ->goalentity, make it stand or run accordingly
 	else
-		self->monsterinfo.run (self);
+		self->monsterinfo.run (self);			//^  Makes me turn and tells me what time the ->monsterinfo.attack_finished  time should be
 	VectorSubtract (self->enemy->s.origin, self->s.origin, vec);
 	self->ideal_yaw = vectoyaw(vec);
 	// wait a while before first attack
@@ -344,31 +354,31 @@ void HuntTarget (edict_t *self)
 		AttackFinished (self, 1);
 }
 
-void FoundTarget (edict_t *self)
-{
-	// let other monsters see this monster for a while
-	if (self->enemy->client)
+void FoundTarget (edict_t *self)  //J NOTE:  called by monster_use() in g_monster.c  And that function says "using a monster makes it angry @ the current activator"
+{										//g_monster.c sets  self->enemy = activator  (ONLY IF they DON'T have FL_NOTARGET on activator->flags). THEN calls FoundTarget
+	// let other monsters see this monster for a while  //J HIDE
+	/*if (self->enemy->client) //J NOTE: remember, client is NULL if the entity is not a player
 	{
 		level.sight_entity = self;
 		level.sight_entity_framenum = level.framenum;
 		level.sight_entity->light_level = 128;
-	}
+	}*/
+	//J HIDE
+	//self->show_hostile = level.time + 1;		// wake up other monsters
 
-	self->show_hostile = level.time + 1;		// wake up other monsters
-
-	VectorCopy(self->enemy->s.origin, self->monsterinfo.last_sighting);
-	self->monsterinfo.trail_time = level.time;
-
-	if (!self->combattarget)
+	VectorCopy(self->enemy->s.origin, self->monsterinfo.last_sighting); //J NOTE:  this updates last_sighting (position)
+	self->monsterinfo.trail_time = level.time;	//update trail_time
+	
+	if (!self->combattarget)  //J NOTE:  ohhh wait does combattarget mean "already in combat" ??  I thought it meant what I'm hunting down (not YET IN combat)
 	{
 		HuntTarget (self);
 		return;
 	}
-
+	//J NOTE: change the goal entity based on the target we picked
 	self->goalentity = self->movetarget = G_PickTarget(self->combattarget);
-	if (!self->movetarget)
+	if (!self->movetarget)  //J NOTE: if we didn't pick a target properly
 	{
-		self->goalentity = self->movetarget = self->enemy;
+		self->goalentity = self->movetarget = self->enemy;   //set it (movetarget) here
 		HuntTarget (self);
 		gi.dprintf("%s at %s, combattarget %s not found\n", self->classname, vtos(self->s.origin), self->combattarget);
 		return;
@@ -383,7 +393,17 @@ void FoundTarget (edict_t *self)
 	self->monsterinfo.pausetime = 0;
 
 	// run for it
-	self->monsterinfo.run (self);
+	self->monsterinfo.run (self);			//J IDEA:   move this line under my if. See if that fixes shit
+	//J START :   ok but like..  if I can't see them any more then I have no target bruv   //J FIX
+	if (self->enemy && !visible(self, self->enemy))
+	{  //...  I don't know ..    WHAT   I was doing before  for it to seem like it was working fine.   but the shit does not work anymore
+		if (self->enemy->client)
+			gi.cprintf(self->enemy, PRINT_HIGH, "Target not in sight I should stop following: %s\n");
+		self->enemy = NULL;  //whether the game crashed depends entirely on whether this function is called DIRECTLY AFTER this statement a.k.a no new enemy has been set. So Hunt's LACK of a NULL pointer check will fuck us up
+		self->goalentity = NULL;
+		self->movetarget = NULL;
+	}  //I was trying to make it so that once I y'know like.  Teleport away or smth  they shouldn't see me,  and it wasn't working 
+
 }
 
 
@@ -434,22 +454,28 @@ qboolean FindTarget (edict_t *self)
 // but not weapon impact/explosion noises
 
 	heardit = false;
+	//J NOTE: assigning an entity we call it Client, because the end goal IS for it TO BE a player,   based on whether the level has SEEN something or HEARD smth   
 	if ((level.sight_entity_framenum >= (level.framenum - 1)) && !(self->spawnflags & 1) )
 	{
 		client = level.sight_entity;
-		if (client->enemy == self->enemy)
+		if (client->client) //J START.  if I'm invisible,  you can't see me.  IMMEDIATELY return false.
+			if (client->client->invincible_framenum > level.framenum)
+				return false;
+			//gi.cprintf(client, PRINT_HIGH, "LEVEL.SIGHT_ENTITY is: %s\n", level.sight_entity->classname);  //J END was for testing purposes but this line never really print. and I'm scared that leaving it UNcommented could crash the damn game
+		if (client->enemy == self->enemy)  //J NOTE: if I share an enemy with the thing the level Saw,  false
 		{
 			return false;
 		}
 	}
-	else if (level.sound_entity_framenum >= (level.framenum - 1))
-	{
-		client = level.sound_entity;
-		heardit = true;
-	}
 	else if (!(self->enemy) && (level.sound2_entity_framenum >= (level.framenum - 1)) && !(self->spawnflags & 1) )
 	{
 		client = level.sound2_entity;
+		heardit = true;
+	}
+	//J START //J CHANGE: I'm switching the order of these damn sound checks bc it's pissing me off
+	else if (level.sound_entity_framenum >= (level.framenum - 1))
+	{
+		client = level.sound_entity;
 		heardit = true;
 	}
 	else
@@ -465,7 +491,7 @@ qboolean FindTarget (edict_t *self)
 
 	if (client == self->enemy)
 		return true;	// JDC false;
-
+	//J NOTE: if the client we assigned is IN FACT a player:
 	if (client->client)
 	{
 		if (client->flags & FL_NOTARGET)
@@ -480,50 +506,58 @@ qboolean FindTarget (edict_t *self)
 	}
 	else if (heardit)
 	{
-		if (client->owner->flags & FL_NOTARGET)
+		if (client->owner->flags & FL_NOTARGET) //if the owner of the sound entity has No Target on
 			return false;
 	}
 	else
 		return false;
-
+	//J NOTE:  if the thing we locked onto was not (caused by) a sound entity:
 	if (!heardit)
 	{
-		r = range (self, client);
+		r = range (self, client);  //J NOTE   bro why is it constantly checking for me man.
 
 		if (r == RANGE_FAR)
 			return false;
 
 // this is where we would check invisibility
 
-		// is client in an spot too dark to be seen?
-		if (client->light_level <= 5)
+		// is client in a spot too dark to be seen? //ooo 50 is a really good value actually  nvm 40 is much more reasonable
+		if (client->light_level <= 40) //J NOTE:  DAWG WHAT THE FUCK THERE ARE LIGHT LEVELS??? //J CHANGE: Default is 5  I think it goes up to at leaast 128 so let's make it like fuckin 50.
 			return false;
-
+		/*if (client->client)
+			gi.cprintf(client, PRINT_HIGH, "Made it past the Light_Level Check: %s\n", self->classname);*/
 		if (!visible (self, client))
 		{
 			return false;
 		}
+		if (client->client)
+			gi.cprintf(client, PRINT_HIGH, "Made it past the !Visible check. You are visible to: %s\n", self->classname);
 
 		if (r == RANGE_NEAR)
-		{
+		{ //J NOTE: I think this only true if not a monster
 			if (client->show_hostile < level.time && !infront (self, client))
-			{
+			{ //so if it's a Player who is NOT in front of us. The fact that they're visible doesn't matter, we didn't Find them
 				return false;
 			}
+			if (client->client)
+				gi.cprintf(client, PRINT_HIGH, "Range is Near\n");
 		}
 		else if (r == RANGE_MID)
 		{
-			if (!infront (self, client))
+			if (!infront (self, client)) //J NOTE: again, if they're not in front of us, we can't see them
 			{
 				return false;
 			}
+			if (client->client)
+				gi.cprintf(client, PRINT_HIGH, "Range is Mid\n");
 		}
-
+		//J NOTE: set my enemy to the client   if we're already here,  it's too late. We've been spoted, we're the enemy now
 		self->enemy = client;
-
-		if (strcmp(self->enemy->classname, "player_noise") != 0)
+		if(client->client)
+			gi.cprintf(client, PRINT_HIGH, "Target LOCKED: %s\n", self->enemy->classname);
+		if (strcmp(self->enemy->classname, "player_noise") != 0) //J NOTE: if the client is not a player noise
 		{
-			self->monsterinfo.aiflags &= ~AI_SOUND_TARGET;
+			self->monsterinfo.aiflags &= ~AI_SOUND_TARGET; //turn off SOUND TARGET
 
 			if (!self->enemy->client)
 			{
@@ -540,7 +574,7 @@ qboolean FindTarget (edict_t *self)
 	{
 		vec3_t	temp;
 
-		if (self->spawnflags & 1)
+		if (self->spawnflags & 1) //J NOTE: "the monster will only wake up upon REALLY seeing the player, not another monster aggro'ing or hearing"
 		{
 			if (!visible (self, client))
 				return false;
@@ -552,8 +586,8 @@ qboolean FindTarget (edict_t *self)
 		}
 
 		VectorSubtract (client->s.origin, self->s.origin, temp);
-
-		if (VectorLength(temp) > 1000)	// too far to hear
+		//J CHANGE: default is 1000
+		if (VectorLength(temp) > 300)	// too far to hear   //J NOTE: I might wanna change this (oh definitely, it worked wonders. 300 is a solid number but maybe we could tweak it
 		{
 			return false;
 		}
@@ -569,6 +603,8 @@ qboolean FindTarget (edict_t *self)
 		// hunt the sound for a bit; hopefully find the real player
 		self->monsterinfo.aiflags |= AI_SOUND_TARGET;
 		self->enemy = client;
+		if (client->client)
+			gi.cprintf(client, PRINT_HIGH, "Target LOCKED!!  THROUGH SOUND!!: %s\n", self->enemy->classname);
 	}
 
 //
@@ -783,12 +819,12 @@ qboolean ai_checkattack (edict_t *self, float dist)
 		{
 			if ((level.time - self->enemy->teleport_time) > 5.0)
 			{
-				if (self->goalentity == self->enemy)
+				if (self->goalentity == self->enemy)  //J NOTE  if goal ent is the same as the enemy we just heard
 					if (self->movetarget)
-						self->goalentity = self->movetarget;
+						self->goalentity = self->movetarget;   //either set my goal entity to the movetarget
 					else
-						self->goalentity = NULL;
-				self->monsterinfo.aiflags &= ~AI_SOUND_TARGET;
+						self->goalentity = NULL;			//or clear my goal entity
+				self->monsterinfo.aiflags &= ~AI_SOUND_TARGET; //turn off sount target  IF they've teleported away
 				if (self->monsterinfo.aiflags & AI_TEMP_STAND_GROUND)
 					self->monsterinfo.aiflags &= ~(AI_STAND_GROUND | AI_TEMP_STAND_GROUND);
 			}
@@ -934,7 +970,7 @@ void ai_run (edict_t *self, float dist)
 	if (self->monsterinfo.aiflags & AI_SOUND_TARGET)
 	{
 		VectorSubtract (self->s.origin, self->enemy->s.origin, v);
-		if (VectorLength(v) < 64)
+		if (VectorLength(v) < 20) //J CHANGE:  this number used to be 64  but if I'm not mistaken, that's pretty far..
 		{
 			self->monsterinfo.aiflags |= (AI_STAND_GROUND | AI_TEMP_STAND_GROUND);
 			self->monsterinfo.stand (self);
@@ -989,7 +1025,7 @@ void ai_run (edict_t *self, float dist)
 	new = false;
 
 	if (!(self->monsterinfo.aiflags & AI_LOST_SIGHT))
-	{
+	{											//J NOTE:  nvm bro these print functions straight up do not work and I cba
 		// just lost sight of the player, decide where to go first
 //		dprint("lost sight of player, last seen at "); dprint(vtos(self.last_sighting)); dprint("\n");
 		self->monsterinfo.aiflags |= (AI_LOST_SIGHT | AI_PURSUIT_LAST_SEEN);
